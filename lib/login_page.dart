@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'auth_service.dart';
 import 'professor_panel.dart';
 import 'monitor_panel.dart';
@@ -48,32 +49,46 @@ class LoginPageState extends State<LoginPage> {
                 String email = emailController.text;
                 String password = passwordController.text;
 
-                firebase_auth.User? user = await authService.signInWithEmailAndPassword(email, password);
+                try {
+                  firebase_auth.User? user = await authService.signInWithEmailAndPassword(email, password);
 
-                if (user != null) {
-                  // Usuario autenticado con éxito, redirige según el rol
-                  if (email == "admin@example.com") {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (context) => const AdminPage()),
-                    );
-                  } else if (email.contains("profesor")) {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (context) => const ProfessorPanel()),
-                    );
-                  } else if (email.contains("monitor")) {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (context) => const MonitorPanel()),
-                    );
+                  if (user != null) {
+                    // Verifica si es el administrador
+                    if (email == "admin@example.com") {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (context) => const AdminPage()),
+                      );
+                    } else {
+                      bool usuarioEnFirestore = await verificarRegistroFirestore(email);
+
+                      if (usuarioEnFirestore) {
+                        // Verificar si es profesor o monitor
+                        if (await esProfesor(email)) {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(builder: (context) => const ProfessorPanel()),
+                          );
+                        } else {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(builder: (context) => const MonitorPanel()),
+                          );
+                        }
+                      } else {
+                        setState(() {
+                          errorMessage = 'El usuario no tiene un registro en la base de datos.';
+                        });
+                      }
+                    }
+                  } else {
+                    setState(() {
+                      errorMessage = 'Usuario o contraseña incorrectos';
+                    });
                   }
-                } else {
-                  // Usuario o contraseña incorrectos
+                } catch (e) {
                   setState(() {
-                    errorMessage = 'Usuario o contraseña incorrectos';
-                    emailController.clear();
-                    passwordController.clear();
+                    errorMessage = 'Error al iniciar sesión: $e';
                   });
                 }
               },
@@ -83,5 +98,24 @@ class LoginPageState extends State<LoginPage> {
         ),
       ),
     );
+  }
+
+  Future<bool> verificarRegistroFirestore(String email) async {
+    QuerySnapshot querySnapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .where('email', isEqualTo: email)
+        .get();
+
+    return querySnapshot.docs.isNotEmpty;
+  }
+
+  Future<bool> esProfesor(String email) async {
+    QuerySnapshot querySnapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .where('email', isEqualTo: email)
+        .where('role', isEqualTo: 'Profesor')
+        .get();
+
+    return querySnapshot.docs.isNotEmpty;
   }
 }
