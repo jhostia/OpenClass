@@ -19,29 +19,33 @@ class _ManageUsersPageState extends State<ManageUsersPage> {
   }
 
   Future<void> loadUsers() async {
-  try {
-    List<User> fetchedUsers = await Database().getAllUsers();
-    print("Usuarios obtenidos: ${fetchedUsers.length}"); // Verifica cuántos usuarios se obtienen
-    setState(() {
-      users = fetchedUsers;
-    });
-  } catch (e) {
-    setState(() {
-      errorMessage = 'Error al cargar usuarios: $e';
-    });
-    print("Error en loadUsers: $e"); // Imprime el error en caso de fallo
+    try {
+      List<User> fetchedUsers = await Database().getAllUsers();
+      setState(() {
+        users = fetchedUsers;
+      });
+    } catch (e) {
+      setState(() {
+        errorMessage = 'Error al cargar usuarios: $e';
+      });
+    }
   }
-}
-
 
   void showUserDetails(User user) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text(user.name),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+          title: Text(
+            user.name,
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Correo: ${user.email}'),
               Text('Teléfono: ${user.phone}'),
@@ -85,44 +89,67 @@ class _ManageUsersPageState extends State<ManageUsersPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Gestionar Usuarios'),
+        backgroundColor: Colors.blueAccent,
       ),
       body: errorMessage.isNotEmpty
           ? Center(child: Text(errorMessage, style: const TextStyle(color: Colors.red)))
           : users.isEmpty
               ? const Center(child: CircularProgressIndicator())
-              : ListView.builder(
-                  itemCount: users.length,
-                  itemBuilder: (context, index) {
-                    final user = users[index];
-                    return ListTile(
-                      title: Text(user.name),
-                      subtitle: Text(user.email),
-                      onTap: () => showUserDetails(user), // Muestra detalles al hacer clic
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.edit),
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => EditUserPage(user: user),
-                                ),
-                              ).then((_) => loadUsers()); // Recarga los usuarios al regresar
-                            },
+              : Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: ListView.builder(
+                    itemCount: users.length,
+                    itemBuilder: (context, index) {
+                      final user = users[index];
+                      return Card(
+                        elevation: 4,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                        margin: const EdgeInsets.symmetric(vertical: 8),
+                        child: ListTile(
+                          title: Text(
+                            user.name,
+                            style: TextStyle(fontWeight: FontWeight.bold),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.delete),
-                            onPressed: () {
-                              deleteUser(user.id);
-                            },
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Correo: ${user.email}'),
+                              Text('Rol: ${user.role}'),
+                              if (user.role == 'Monitor')
+                                Text('Salones: ${user.rooms.join(', ')}'),
+                            ],
                           ),
-                        ],
-                      ),
-                    );
-                  },
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit, color: Colors.blue),
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => EditUserPage(user: user),
+                                    ),
+                                  ).then((_) => loadUsers());
+                                },
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete, color: Colors.red),
+                                onPressed: () {
+                                  deleteUser(user.id);
+                                },
+                              ),
+                            ],
+                          ),
+                          onTap: () => showUserDetails(user),
+                        ),
+                      );
+                    },
+                  ),
                 ),
     );
   }
 }
+

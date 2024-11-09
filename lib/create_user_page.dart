@@ -61,7 +61,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
       name: name,
       phone: phone,
       email: email,
-      username: '', // Asigna el valor necesario
+      username: '',
       password: password,
       role: selectedRole,
       rooms: selectedRole == 'Monitor' ? selectedRooms : [],
@@ -74,12 +74,10 @@ class _CreateUserPageState extends State<CreateUserPage> {
         errorMessage = '';
       });
 
-      // Mostrar mensaje de éxito
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Usuario registrado exitosamente')),
       );
 
-      // Regresar a la pantalla anterior
       Navigator.pop(context);
     } catch (e) {
       setState(() {
@@ -93,119 +91,186 @@ class _CreateUserPageState extends State<CreateUserPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Crear Usuario'),
+        backgroundColor: Colors.blueAccent,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: SingleChildScrollView(
-          child: Column(
-            children: [
-              TextField(
-                controller: emailController,
-                decoration: const InputDecoration(labelText: 'Correo Electrónico'),
+          child: Card(
+            elevation: 8,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Center(
+                    child: Text(
+                      'Datos del Usuario',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blueAccent,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  _buildTextField(
+                    controller: emailController,
+                    label: 'Correo Electrónico',
+                    icon: Icons.email,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildTextField(
+                    controller: passwordController,
+                    label: 'Contraseña',
+                    icon: Icons.lock,
+                    obscureText: true,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildTextField(
+                    controller: nameController,
+                    label: 'Nombre',
+                    icon: Icons.person,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildTextField(
+                    controller: idController,
+                    label: 'Identificación',
+                    icon: Icons.badge,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildTextField(
+                    controller: phoneController,
+                    label: 'Teléfono',
+                    icon: Icons.phone,
+                  ),
+                  const SizedBox(height: 20),
+                  DropdownButtonFormField<String>(
+                    value: selectedRole,
+                    items: ['Profesor', 'Monitor']
+                        .map((role) => DropdownMenuItem(value: role, child: Text(role)))
+                        .toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        selectedRole = value!;
+                        if (selectedRole != 'Monitor') {
+                          selectedRooms.clear();
+                          selectedBlocks.clear();
+                          selectedFloors.clear();
+                        }
+                      });
+                    },
+                    decoration: InputDecoration(
+                      labelText: 'Rol',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                  if (selectedRole == 'Monitor') ...[
+                    const SizedBox(height: 20),
+                    _buildSelectionSection('Seleccione Bloques', blocks, selectedBlocks),
+                    const SizedBox(height: 20),
+                    _buildSelectionSection('Seleccione Pisos', floors, selectedFloors),
+                    const SizedBox(height: 20),
+                    const Text('Seleccione Salones'),
+                    Wrap(
+                      children: selectedFloors.expand((floor) {
+                        return roomsByFloor[floor]?.map((room) {
+                          final formattedRoom = selectedBlocks.isNotEmpty
+                              ? '$room${selectedBlocks[0].toLowerCase()}'
+                              : room;
+                          return FilterChip(
+                            label: Text(formattedRoom),
+                            selected: selectedRooms.contains(formattedRoom),
+                            onSelected: (isSelected) {
+                              setState(() {
+                                isSelected
+                                    ? selectedRooms.add(formattedRoom)
+                                    : selectedRooms.remove(formattedRoom);
+                              });
+                            },
+                          );
+                        }).toList() ?? [];
+                      }).cast<Widget>().toList(),
+                    ),
+                  ],
+                  if (errorMessage.isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    Text(
+                      errorMessage,
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  ],
+                  const SizedBox(height: 20),
+                  Center(
+                    child: ElevatedButton.icon(
+                      onPressed: registerUser,
+                      icon: const Icon(Icons.save),
+                      label: const Text('Registrar Usuario'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blueAccent,
+                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              TextField(
-                controller: passwordController,
-                decoration: const InputDecoration(labelText: 'Contraseña'),
-                obscureText: true,
-              ),
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(labelText: 'Nombre'),
-              ),
-              TextField(
-                controller: idController,
-                decoration: const InputDecoration(labelText: 'Identificación'),
-              ),
-              TextField(
-                controller: phoneController,
-                decoration: const InputDecoration(labelText: 'Teléfono'),
-              ),
-              DropdownButton<String>(
-                value: selectedRole,
-                items: ['Profesor', 'Monitor']
-                    .map((role) => DropdownMenuItem(value: role, child: Text(role)))
-                    .toList(),
-                onChanged: (value) {
-                  setState(() {
-                    selectedRole = value!;
-                    if (selectedRole != 'Monitor') {
-                      selectedRooms.clear();
-                      selectedBlocks.clear();
-                      selectedFloors.clear();
-                    }
-                  });
-                },
-              ),
-              if (selectedRole == 'Monitor') ...[
-                const SizedBox(height: 20),
-                const Text('Seleccione Bloques'),
-                Wrap(
-                  children: blocks.map((block) {
-                    return FilterChip(
-                      label: Text(block.toUpperCase()),
-                      selected: selectedBlocks.contains(block),
-                      onSelected: (isSelected) {
-                        setState(() {
-                          isSelected ? selectedBlocks.add(block) : selectedBlocks.remove(block);
-                        });
-                      },
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 20),
-                const Text('Seleccione Pisos'),
-                Wrap(
-                  children: floors.map((floor) {
-                    return FilterChip(
-                      label: Text(floor),
-                      selected: selectedFloors.contains(floor),
-                      onSelected: (isSelected) {
-                        setState(() {
-                          isSelected ? selectedFloors.add(floor) : selectedFloors.remove(floor);
-                        });
-                      },
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 20),
-                const Text('Seleccione Salones'),
-                Wrap(
-                  children: selectedFloors.expand((floor) {
-                    return roomsByFloor[floor]?.map((room) {
-                      final formattedRoom = selectedBlocks.isNotEmpty
-                          ? '$room${selectedBlocks[0].toLowerCase()}'
-                          : room;
-                      return FilterChip(
-                        label: Text(formattedRoom),
-                        selected: selectedRooms.contains(formattedRoom),
-                        onSelected: (isSelected) {
-                          setState(() {
-                            isSelected
-                                ? selectedRooms.add(formattedRoom)
-                                : selectedRooms.remove(formattedRoom);
-                          });
-                        },
-                      );
-                    }).toList() ?? [];
-                  }).cast<Widget>().toList(),
-                ),
-              ],
-              if (errorMessage.isNotEmpty) ...[
-                const SizedBox(height: 20),
-                Text(
-                  errorMessage,
-                  style: const TextStyle(color: Colors.red),
-                ),
-              ],
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: registerUser,
-                child: const Text('Registrar Usuario'),
-              ),
-            ],
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    bool obscureText = false,
+  }) {
+    return TextField(
+      controller: controller,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, color: Colors.blueAccent),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        filled: true,
+        fillColor: Colors.white,
+      ),
+      obscureText: obscureText,
+    );
+  }
+
+  Widget _buildSelectionSection(String title, List<String> options, List<String> selectedList) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8.0,
+          children: options.map((option) {
+            return FilterChip(
+              label: Text(option.toUpperCase()),
+              selected: selectedList.contains(option),
+              onSelected: (isSelected) {
+                setState(() {
+                  isSelected ? selectedList.add(option) : selectedList.remove(option);
+                });
+              },
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 }

@@ -5,7 +5,6 @@ import 'auth_service.dart';
 import 'professor_panel.dart';
 import 'monitor_panel.dart';
 import 'admin_page.dart';
-import 'ui/styles/custom_styles.dart'; // Asegúrate de importar tu archivo de estilos
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -19,97 +18,163 @@ class LoginPageState extends State<LoginPage> {
   final TextEditingController passwordController = TextEditingController();
   final AuthService authService = AuthService();
   String errorMessage = '';
+  bool rememberMe = false; // Estado de "Recordarme"
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Iniciar Sesión'),
-        backgroundColor: CustomStyles.primaryColor, // Usa tu estilo personalizado
-      ),
-      body: Center(
-        child: SingleChildScrollView(
+      body: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white, // Fondo blanco
+        ),
+        child: Center(
           child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                TextField(
-                  controller: emailController,
-                  decoration: InputDecoration(
-                    labelText: 'Correo Electrónico',
-                    labelStyle: CustomStyles.labelTextStyle, // Aplica el estilo personalizado
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: passwordController,
-                  decoration: InputDecoration(
-                    labelText: 'Contraseña',
-                    labelStyle: CustomStyles.labelTextStyle, // Aplica el estilo personalizado
-                    border: OutlineInputBorder(),
-                  ),
-                  obscureText: true,
-                ),
-                const SizedBox(height: 20),
-                if (errorMessage.isNotEmpty)
-                  Text(
-                    errorMessage,
-                    style: CustomStyles.errorTextStyle, // Aplica el estilo personalizado
-                  ),
-                ElevatedButton(
-                  style: CustomStyles.elevatedButtonStyle, // Aplica el estilo personalizado
-                  onPressed: () async {
-                    String email = emailController.text;
-                    String password = passwordController.text;
+            padding: const EdgeInsets.all(24.0),
+            child: Card(
+              elevation: 8,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    const Text(
+                      'Iniciar Sesión',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blueAccent,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: emailController,
+                      decoration: InputDecoration(
+                        labelText: 'Correo Electrónico',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: passwordController,
+                      decoration: InputDecoration(
+                        labelText: 'Contraseña',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                      ),
+                      obscureText: true,
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: rememberMe,
+                          onChanged: (bool? value) {
+                            setState(() {
+                              rememberMe = value ?? false;
+                            });
+                          },
+                        ),
+                        const Text('Recordarme'),
+                      ],
+                    ),
+                    if (errorMessage.isNotEmpty)
+                      Text(
+                        errorMessage,
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    const SizedBox(height: 20),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blueAccent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        elevation: 5,
+                      ),
+                      onPressed: () async {
+                        String email = emailController.text;
+                        String password = passwordController.text;
 
-                    try {
-                      firebase_auth.User? user = await authService.signInWithEmailAndPassword(email, password);
+                        try {
+                          firebase_auth.User? user = await authService.signInWithEmailAndPassword(email, password);
 
-                      if (user != null) {
-                        // Verifica si es el administrador
-                        if (email == "admin@example.com") {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(builder: (context) => const AdminPage()),
-                          );
-                        } else {
-                          bool usuarioEnFirestore = await verificarRegistroFirestore(email);
-
-                          if (usuarioEnFirestore) {
-                            // Verificar si es profesor o monitor
-                            if (await esProfesor(email)) {
+                          if (user != null) {
+                            // Verifica si es el administrador
+                            if (email == "admin@example.com") {
                               Navigator.pushReplacement(
                                 context,
-                                MaterialPageRoute(builder: (context) => const ProfessorPanel()),
+                                MaterialPageRoute(builder: (context) => const AdminPage()),
                               );
                             } else {
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(builder: (context) => const MonitorPanel()),
-                              );
+                              bool usuarioEnFirestore = await verificarRegistroFirestore(email);
+
+                              if (usuarioEnFirestore) {
+                                // Verificar si es profesor o monitor
+                                if (await esProfesor(email)) {
+                                  Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(builder: (context) => const ProfessorPanel()),
+                                  );
+                                } else {
+                                  Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(builder: (context) => const MonitorPanel()),
+                                  );
+                                }
+                              } else {
+                                setState(() {
+                                  errorMessage = 'El usuario no tiene un registro en la base de datos.';
+                                });
+                              }
                             }
                           } else {
                             setState(() {
-                              errorMessage = 'El usuario no tiene un registro en la base de datos.';
+                              errorMessage = 'Usuario o contraseña incorrectos';
                             });
                           }
+                        } catch (e) {
+                          setState(() {
+                            errorMessage = 'Error al iniciar sesión: $e';
+                          });
                         }
-                      } else {
-                        setState(() {
-                          errorMessage = 'Usuario o contraseña incorrectos';
-                        });
-                      }
-                    } catch (e) {
-                      setState(() {
-                        errorMessage = 'Error al iniciar sesión: $e';
-                      });
-                    }
-                  },
-                  child: Text('Ingresar', style: CustomStyles.buttonTextStyle), // Aplica el estilo personalizado
+                      },
+                      icon: const Icon(Icons.login, color: Colors.white),
+                      label: const Text(
+                        'Iniciar Sesión   ',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextButton(
+                      onPressed: () {
+                        // Implementar la lógica de "¿Olvidaste tu contraseña?"
+                      },
+                      child: const Text(
+                        '¿Olvidaste tu contraseña?',
+                        style: TextStyle(
+                          color: Colors.blueAccent,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
