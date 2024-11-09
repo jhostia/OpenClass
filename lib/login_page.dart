@@ -19,6 +19,13 @@ class LoginPageState extends State<LoginPage> {
   final AuthService authService = AuthService();
   String errorMessage = '';
   bool rememberMe = false; // Estado de "Recordarme"
+  bool _passwordVisible = false; // Estado para mostrar/ocultar la contraseña
+
+  @override
+  void initState() {
+    super.initState();
+    _passwordVisible = false;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,6 +70,7 @@ class LoginPageState extends State<LoginPage> {
                     const SizedBox(height: 16),
                     TextField(
                       controller: passwordController,
+                      obscureText: !_passwordVisible, // Muestra u oculta la contraseña
                       decoration: InputDecoration(
                         labelText: 'Contraseña',
                         border: OutlineInputBorder(
@@ -70,8 +78,17 @@ class LoginPageState extends State<LoginPage> {
                         ),
                         filled: true,
                         fillColor: Colors.white,
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _passwordVisible ? Icons.visibility : Icons.visibility_off,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _passwordVisible = !_passwordVisible;
+                            });
+                          },
+                        ),
                       ),
-                      obscureText: true,
                     ),
                     const SizedBox(height: 10),
                     Row(
@@ -134,7 +151,7 @@ class LoginPageState extends State<LoginPage> {
                                 }
                               } else {
                                 setState(() {
-                                  errorMessage = 'El usuario no tiene un registro en la base de datos.';
+                                  errorMessage = 'Este usuario no existe.';
                                 });
                               }
                             }

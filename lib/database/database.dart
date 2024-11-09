@@ -46,5 +46,20 @@ class Database {
       throw e; // Esto ayudará a capturar errores en la UI
     }
   }
+
+  Future<User?> getUserByEmail(String email) async {
+  try {
+    QuerySnapshot snapshot = await userCollection.where('email', isEqualTo: email).get();
+    if (snapshot.docs.isNotEmpty) {
+      return User.fromMap(snapshot.docs.first.data() as Map<String, dynamic>);
+    }
+    return null; // Si no se encuentra un usuario con ese correo
+  } catch (e) {
+    print("Error al obtener usuario por correo: $e");
+    return null;
+  }
+}
+
+
 }
 
