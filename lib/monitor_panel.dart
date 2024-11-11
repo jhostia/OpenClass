@@ -68,6 +68,107 @@ class _MonitorPanelState extends State<MonitorPanel> {
     );
   }
 
+  Widget _buildAlertList() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance.collection('alerts').orderBy('timestamp', descending: true).snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        var alerts = snapshot.data!.docs;
+        if (alerts.isEmpty) {
+          return const Center(child: Text('No hay alertas disponibles.'));
+        }
+
+        return ListView.builder(
+          itemCount: alerts.length,
+          itemBuilder: (context, index) {
+            var alert = alerts[index].data() as Map<String, dynamic>;
+            String status = alert['status'] ?? 'Enviada';
+
+            return Card(
+              margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.0)),
+              child: ListTile(
+                title: Text(
+                  'Alerta en Bloque ${alert['block']} - Salón ${alert['room']}',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Urgente: ${alert['isUrgent'] ? 'Sí' : 'No'}',
+                      style: TextStyle(
+                        color: alert['isUrgent'] ? Colors.red : Colors.black,
+                        fontWeight: alert['isUrgent'] ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                    Text(
+                      'Comentarios: ${alert['comments'].isNotEmpty ? alert['comments'] : 'Sin comentarios'}',
+                      style: const TextStyle(fontStyle: FontStyle.italic),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Estado: $status',
+                      style: TextStyle(
+                        color: status == 'Aceptada' ? Colors.green : status == 'Denegada' ? Colors.red : Colors.black,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                trailing: status == 'Enviada'
+                    ? Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.check_circle, color: Colors.green),
+                            onPressed: () {
+                              _handleAlertResponse(alerts[index].id, true);
+                            },
+                            tooltip: 'Aceptar',
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.cancel, color: Colors.red),
+                            onPressed: () {
+                              _handleAlertResponse(alerts[index].id, false);
+                            },
+                            tooltip: 'Rechazar',
+                          ),
+                        ],
+                      )
+                    : null,
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _handleAlertResponse(String alertId, bool accepted) async {
+    try {
+      await FirebaseFirestore.instance.collection('alerts').doc(alertId).update({
+        'status': accepted ? 'Aceptada' : 'Denegada',
+        'handledBy': userId,
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(accepted ? 'Alerta aceptada' : 'Alerta denegada'),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al responder la alerta: $e'),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -136,9 +237,7 @@ class _MonitorPanelState extends State<MonitorPanel> {
           ],
         ),
       ),
-      body: Center(
-        child: Text('Aquí se mostrarán las alertas y notificaciones'),
-      ),
+      body: _buildAlertList(),
     );
   }
 }
