@@ -132,7 +132,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
                   const SizedBox(height: 16),
                   _buildTextField(
                     controller: nameController,
-                    label: 'Nombre',
+                    label: 'Nombre Completo',
                     icon: Icons.person,
                   ),
                   const SizedBox(height: 16),
