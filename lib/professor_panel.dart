@@ -100,6 +100,168 @@ class _ProfessorPanelState extends State<ProfessorPanel> {
     }
   }
 
+  Widget _buildHistory() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('alerts')
+          .orderBy('timestamp', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        var allAlerts = snapshot.data!.docs;
+        var filteredAlerts = allAlerts.where((alert) {
+          var alertData = alert.data() as Map<String, dynamic>;
+          return alertData['professorId'] == userId;
+        }).toList();
+
+        if (filteredAlerts.isEmpty) {
+          return const Center(child: Text('No hay alertas en el historial.'));
+        }
+
+        return ListView.builder(
+          itemCount: filteredAlerts.length,
+          itemBuilder: (context, index) {
+            var alert = filteredAlerts[index].data() as Map<String, dynamic>;
+            DateTime timestamp = (alert['timestamp'] as Timestamp).toDate();
+            return Card(
+              margin: const EdgeInsets.all(8.0),
+              child: ListTile(
+                title: Text('Alerta en Bloque ${alert['block']} - Salón ${alert['room']}'),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Fecha y hora: ${timestamp.toLocal()}'),
+                    Text('Estado: ${alert['status']}'),
+                    Text('Urgente: ${alert['isUrgent'] ? 'Sí' : 'No'}'),
+                    Text('Comentarios: ${alert['comments']}'),
+                    if (alert['handledBy'] != null)
+                      Text('Atendida por: ${alert['handledBy']}'),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _finalizeAlert(String alertId, String monitorId) async {
+  try {
+    DateTime now = DateTime.now();
+
+    var alertDoc = await FirebaseFirestore.instance.collection('alerts').doc(alertId).get();
+    if (alertDoc.exists && alertDoc['acceptedTime'] != null) {
+      DateTime acceptedTime = (alertDoc['acceptedTime'] as Timestamp).toDate();
+      Duration responseTime = now.difference(acceptedTime);
+
+      // Formatear el tiempo de respuesta en horas, minutos y segundos
+      String responseTimeFormatted = '${responseTime.inHours} h ${responseTime.inMinutes % 60} min ${responseTime.inSeconds % 60} sec';
+
+      await FirebaseFirestore.instance.collection('alerts').doc(alertId).update({
+        'status': 'Finalizada',
+        'completedTime': now,
+        'responseTime': responseTimeFormatted,
+      });
+
+      // Obtener los datos actuales del monitor
+      var monitorDoc = await FirebaseFirestore.instance.collection('users').doc(monitorId).get();
+      if (monitorDoc.exists) {
+        int totalResponses = (monitorDoc['totalResponses'] ?? 0) as int;
+        int totalResponseTime = (monitorDoc['totalResponseTime'] ?? 0) as int;
+
+        // Convertir el tiempo de respuesta a segundos para el cálculo
+        int responseTimeInSeconds = responseTime.inSeconds;
+        totalResponses += 1;
+        totalResponseTime += responseTimeInSeconds;
+
+        // Calcular el tiempo promedio en horas, minutos y segundos
+        int averageResponseTimeInSeconds = (totalResponseTime / totalResponses).round();
+        String averageResponseTimeFormatted =
+            '${(averageResponseTimeInSeconds ~/ 3600)} h ${(averageResponseTimeInSeconds % 3600 ~/ 60)} min ${(averageResponseTimeInSeconds % 60)} sec';
+
+        // Actualizar los datos del monitor
+        await FirebaseFirestore.instance.collection('users').doc(monitorId).update({
+          'totalResponses': totalResponses,
+          'totalResponseTime': totalResponseTime,
+          'averageResponseTime': averageResponseTimeFormatted,
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Alerta finalizada y tiempo de respuesta registrado.')),
+        );
+      }
+    } else {
+      throw Exception('El campo "acceptedTime" no existe o es nulo en el documento de la alerta.');
+    }
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Error al finalizar la alerta: $e')),
+    );
+  }
+}
+
+
+
+
+  Widget _buildAlertsInProgress() {
+  return StreamBuilder<QuerySnapshot>(
+    stream: FirebaseFirestore.instance
+        .collection('alerts')
+        .where('professorId', isEqualTo: userId)
+        .where('status', isEqualTo: 'Aceptada')
+        .snapshots(),
+    builder: (context, snapshot) {
+      if (!snapshot.hasData) {
+        return const Center(child: CircularProgressIndicator());
+      }
+
+      var alerts = snapshot.data!.docs;
+      if (alerts.isEmpty) {
+        return const Center(child: Text('No hay alertas en proceso.'));
+      }
+
+      return ListView.builder(
+        itemCount: alerts.length,
+        itemBuilder: (context, index) {
+          var alert = alerts[index].data() as Map<String, dynamic>;
+          String monitorId = alert['handledBy'];
+
+          return FutureBuilder<DocumentSnapshot>(
+            future: FirebaseFirestore.instance.collection('users').doc(monitorId).get(),
+            builder: (context, monitorSnapshot) {
+              if (!monitorSnapshot.hasData) {
+                return const ListTile(
+                  title: Text('Cargando...'),
+                );
+              }
+
+              var monitorData = monitorSnapshot.data!.data() as Map<String, dynamic>;
+              String monitorName = monitorData['name'] ?? 'Desconocido';
+
+              return Card(
+                margin: const EdgeInsets.all(8.0),
+                child: ListTile(
+                  title: Text('Alerta en Bloque ${alert['block']} - Salón ${alert['room']}'),
+                  subtitle: Text('Monitor: $monitorName\nEstado: ${alert['status']}'),
+                  trailing: ElevatedButton(
+                    onPressed: () => _finalizeAlert(alerts[index].id, monitorId),
+                    child: const Text('Finalizar'),
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      );
+    },
+  );
+}
+
+
   List<String> _generateRooms(String floor, String block) {
     return List.generate(4, (index) {
       int roomNumber = index + 1;
@@ -139,6 +301,36 @@ class _ProfessorPanelState extends State<ProfessorPanel> {
                       email: email,
                       address: address,
                       gender: gender,
+                    ),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.history),
+              title: const Text('Historial'),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => Scaffold(
+                      appBar: AppBar(title: const Text('Historial de Alertas')),
+                      body: _buildHistory(),
+                    ),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.incomplete_circle),
+              title: const Text('Alertas en proceso'),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => Scaffold(
+                      appBar: AppBar(title: const Text('Alertas en proceso')),
+                      body: _buildAlertsInProgress(),
                     ),
                   ),
                 );
@@ -274,4 +466,3 @@ class _ProfessorPanelState extends State<ProfessorPanel> {
     );
   }
 }
-
