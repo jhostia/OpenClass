@@ -149,29 +149,28 @@ class _MonitorPanelState extends State<MonitorPanel> {
   }
 
   Future<void> _handleAlertResponse(String alertId, bool accepted) async {
-  try {
-    DateTime acceptedTime = DateTime.now();
+    try {
+      DateTime acceptedTime = DateTime.now();
 
-    await FirebaseFirestore.instance.collection('alerts').doc(alertId).update({
-      'status': accepted ? 'Aceptada' : 'Denegada',
-      'handledBy': userId,
-      'acceptedTime': accepted ? acceptedTime : null, // Añadir `acceptedTime`
-    });
+      await FirebaseFirestore.instance.collection('alerts').doc(alertId).update({
+        'status': accepted ? 'Aceptada' : 'Denegada',
+        'handledBy': userId,
+        'acceptedTime': accepted ? acceptedTime : null,
+      });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(accepted ? 'Alerta aceptada' : 'Alerta denegada'),
-      ),
-    );
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Error al responder la alerta: $e'),
-      ),
-    );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(accepted ? 'Alerta aceptada' : 'Alerta denegada'),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al responder la alerta: $e'),
+        ),
+      );
+    }
   }
-}
-
 
   @override
   Widget build(BuildContext context) {

@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'profile_page.dart';
 import 'login_page.dart';
+import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 
 class ProfessorPanel extends StatefulWidget {
   const ProfessorPanel({super.key});
@@ -150,117 +151,164 @@ class _ProfessorPanelState extends State<ProfessorPanel> {
   }
 
   Future<void> _finalizeAlert(String alertId, String monitorId) async {
-  try {
-    DateTime now = DateTime.now();
+    try {
+      DateTime now = DateTime.now();
 
-    var alertDoc = await FirebaseFirestore.instance.collection('alerts').doc(alertId).get();
-    if (alertDoc.exists && alertDoc['acceptedTime'] != null) {
-      DateTime acceptedTime = (alertDoc['acceptedTime'] as Timestamp).toDate();
-      Duration responseTime = now.difference(acceptedTime);
+      var alertDoc = await FirebaseFirestore.instance.collection('alerts').doc(alertId).get();
+      if (alertDoc.exists && alertDoc['acceptedTime'] != null) {
+        DateTime acceptedTime = (alertDoc['acceptedTime'] as Timestamp).toDate();
+        Duration responseTime = now.difference(acceptedTime);
 
-      // Formatear el tiempo de respuesta en horas, minutos y segundos
-      String responseTimeFormatted = '${responseTime.inHours} h ${responseTime.inMinutes % 60} min ${responseTime.inSeconds % 60} sec';
+        // Formatear el tiempo de respuesta en horas, minutos y segundos
+        String responseTimeFormatted = '${responseTime.inHours} h ${responseTime.inMinutes % 60} min ${responseTime.inSeconds % 60} sec';
 
-      await FirebaseFirestore.instance.collection('alerts').doc(alertId).update({
-        'status': 'Finalizada',
-        'completedTime': now,
-        'responseTime': responseTimeFormatted,
-      });
-
-      // Obtener los datos actuales del monitor
-      var monitorDoc = await FirebaseFirestore.instance.collection('users').doc(monitorId).get();
-      if (monitorDoc.exists) {
-        int totalResponses = (monitorDoc['totalResponses'] ?? 0) as int;
-        int totalResponseTime = (monitorDoc['totalResponseTime'] ?? 0) as int;
-
-        // Convertir el tiempo de respuesta a segundos para el cálculo
-        int responseTimeInSeconds = responseTime.inSeconds;
-        totalResponses += 1;
-        totalResponseTime += responseTimeInSeconds;
-
-        // Calcular el tiempo promedio en horas, minutos y segundos
-        int averageResponseTimeInSeconds = (totalResponseTime / totalResponses).round();
-        String averageResponseTimeFormatted =
-            '${(averageResponseTimeInSeconds ~/ 3600)} h ${(averageResponseTimeInSeconds % 3600 ~/ 60)} min ${(averageResponseTimeInSeconds % 60)} sec';
-
-        // Actualizar los datos del monitor
-        await FirebaseFirestore.instance.collection('users').doc(monitorId).update({
-          'totalResponses': totalResponses,
-          'totalResponseTime': totalResponseTime,
-          'averageResponseTime': averageResponseTimeFormatted,
+        await FirebaseFirestore.instance.collection('alerts').doc(alertId).update({
+          'status': 'Finalizada',
+          'completedTime': now,
+          'responseTime': responseTimeFormatted,
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Alerta finalizada y tiempo de respuesta registrado.')),
-        );
+        var monitorDoc = await FirebaseFirestore.instance.collection('users').doc(monitorId).get();
+        if (monitorDoc.exists) {
+          int totalResponses = (monitorDoc['totalResponses'] ?? 0) as int;
+          int totalResponseTime = (monitorDoc['totalResponseTime'] ?? 0) as int;
+          double totalStars = (monitorDoc.data()!.containsKey('totalStars') ? monitorDoc['totalStars'] : 0.0) as double;
+          double averageStars = (monitorDoc.data()!.containsKey('averageStars') ? monitorDoc['averageStars'] : 0.0) as double;
+
+          // Convertir el tiempo de respuesta a segundos para el cálculo
+          int responseTimeInSeconds = responseTime.inSeconds;
+          totalResponses += 1;
+          totalResponseTime += responseTimeInSeconds;
+
+          // Calcular el tiempo promedio en horas, minutos y segundos
+          int averageResponseTimeInSeconds = (totalResponseTime / totalResponses).round();
+          String averageResponseTimeFormatted =
+              '${(averageResponseTimeInSeconds ~/ 3600)} h ${(averageResponseTimeInSeconds % 3600 ~/ 60)} min ${(averageResponseTimeInSeconds % 60)} sec';
+
+          // Mostrar el diálogo para calificar al monitor
+          double rating = await _showRatingDialog();
+
+          // Actualizar el total de estrellas y el promedio
+          totalStars += rating;
+          averageStars = totalStars / totalResponses;
+
+          // Actualizar los datos del monitor
+          await FirebaseFirestore.instance.collection('users').doc(monitorId).update({
+            'totalResponses': totalResponses,
+            'totalResponseTime': totalResponseTime,
+            'averageResponseTime': averageResponseTimeFormatted,
+            'totalStars': totalStars,
+            'averageStars': averageStars,
+          });
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Alerta finalizada, tiempo de respuesta y calificación registrados.')),
+          );
+        }
+      } else {
+        throw Exception('El campo "acceptedTime" no existe o es nulo en el documento de la alerta.');
       }
-    } else {
-      throw Exception('El campo "acceptedTime" no existe o es nulo en el documento de la alerta.');
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al finalizar la alerta: $e')),
+      );
     }
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Error al finalizar la alerta: $e')),
-    );
   }
-}
 
+  Future<double> _showRatingDialog() async {
+    double rating = 3.0; // Calificación inicial por defecto
 
-
+    return await showDialog<double>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Califica al monitor'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Selecciona una calificación:'),
+              RatingBar.builder(
+                initialRating: rating,
+                minRating: 1,
+                direction: Axis.horizontal,
+                allowHalfRating: true,
+                itemCount: 5,
+                itemBuilder: (context, _) => const Icon(
+                  Icons.star,
+                  color: Colors.amber,
+                ),
+                onRatingUpdate: (newRating) {
+                  rating = newRating; // Actualiza el valor de la calificación
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(rating); // Retorna la calificación seleccionada
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    ) ?? 3.0; // Retorna 3.0 si el diálogo se cierra sin seleccionar una calificación
+  }
 
   Widget _buildAlertsInProgress() {
-  return StreamBuilder<QuerySnapshot>(
-    stream: FirebaseFirestore.instance
-        .collection('alerts')
-        .where('professorId', isEqualTo: userId)
-        .where('status', isEqualTo: 'Aceptada')
-        .snapshots(),
-    builder: (context, snapshot) {
-      if (!snapshot.hasData) {
-        return const Center(child: CircularProgressIndicator());
-      }
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('alerts')
+          .where('professorId', isEqualTo: userId)
+          .where('status', isEqualTo: 'Aceptada')
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-      var alerts = snapshot.data!.docs;
-      if (alerts.isEmpty) {
-        return const Center(child: Text('No hay alertas en proceso.'));
-      }
+        var alerts = snapshot.data!.docs;
+        if (alerts.isEmpty) {
+          return const Center(child: Text('No hay alertas en proceso.'));
+        }
 
-      return ListView.builder(
-        itemCount: alerts.length,
-        itemBuilder: (context, index) {
-          var alert = alerts[index].data() as Map<String, dynamic>;
-          String monitorId = alert['handledBy'];
+        return ListView.builder(
+          itemCount: alerts.length,
+          itemBuilder: (context, index) {
+            var alert = alerts[index].data() as Map<String, dynamic>;
+            String monitorId = alert['handledBy'];
 
-          return FutureBuilder<DocumentSnapshot>(
-            future: FirebaseFirestore.instance.collection('users').doc(monitorId).get(),
-            builder: (context, monitorSnapshot) {
-              if (!monitorSnapshot.hasData) {
-                return const ListTile(
-                  title: Text('Cargando...'),
-                );
-              }
+            return FutureBuilder<DocumentSnapshot>(
+              future: FirebaseFirestore.instance.collection('users').doc(monitorId).get(),
+              builder: (context, monitorSnapshot) {
+                if (!monitorSnapshot.hasData) {
+                  return const ListTile(
+                    title: Text('Cargando...'),
+                  );
+                }
 
-              var monitorData = monitorSnapshot.data!.data() as Map<String, dynamic>;
-              String monitorName = monitorData['name'] ?? 'Desconocido';
+                var monitorData = monitorSnapshot.data!.data() as Map<String, dynamic>;
+                String monitorName = monitorData['name'] ?? 'Desconocido';
 
-              return Card(
-                margin: const EdgeInsets.all(8.0),
-                child: ListTile(
-                  title: Text('Alerta en Bloque ${alert['block']} - Salón ${alert['room']}'),
-                  subtitle: Text('Monitor: $monitorName\nEstado: ${alert['status']}'),
-                  trailing: ElevatedButton(
-                    onPressed: () => _finalizeAlert(alerts[index].id, monitorId),
-                    child: const Text('Finalizar'),
+                return Card(
+                  margin: const EdgeInsets.all(8.0),
+                  child: ListTile(
+                    title: Text('Alerta en Bloque ${alert['block']} - Salón ${alert['room']}'),
+                    subtitle: Text('Monitor: $monitorName\nEstado: ${alert['status']}'),
+                    trailing: ElevatedButton(
+                      onPressed: () => _finalizeAlert(alerts[index].id, monitorId),
+                      child: const Text('Finalizar'),
+                    ),
                   ),
-                ),
-              );
-            },
-          );
-        },
-      );
-    },
-  );
-}
-
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
 
   List<String> _generateRooms(String floor, String block) {
     return List.generate(4, (index) {
