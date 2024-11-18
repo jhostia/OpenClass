@@ -3,6 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'profile_page.dart';
 import 'login_page.dart';
+import 'package:intl/intl.dart';
+
 
 class MonitorPanel extends StatefulWidget {
   const MonitorPanel({super.key});
@@ -20,6 +22,23 @@ class _MonitorPanelState extends State<MonitorPanel> {
   String gender = 'No especificado';
   bool isActive = true;
 
+  // Variables para el filtrado
+  String? selectedFilterType;
+  String? selectedFilterValue;
+  DateTime? selectedDate;
+
+  List<QueryDocumentSnapshot> filteredAlerts = [];
+  List<QueryDocumentSnapshot> allAlerts = [];
+  String? selectedStatus;
+  bool? isUrgentFilter;
+  String? selectedBlock;
+
+  // Opciones de filtrado
+  final List<String> filterTypes = ['Estado', 'Urgencia', 'Bloque', 'Fecha'];
+  final List<String> statusOptions = ['Enviada', 'Aceptada', 'Denegada', 'Finalizada'];
+  final List<String> blockOptions = ['I', 'P'];
+  final List<String> urgencyOptions = ['Sí', 'No'];
+  
   @override
   void initState() {
     super.initState();
@@ -68,108 +87,373 @@ class _MonitorPanelState extends State<MonitorPanel> {
     );
   }
 
+  // Método para eliminar una alerta de la lista en la interfaz
+  void _removeAlertFromList(int index) {
+    setState(() {
+      filteredAlerts.removeAt(index);
+    });
+  }
+
+  // Método para aplicar filtros a las alertas
+  void _applyFilters() {
+  setState(() {
+    if (selectedFilterType == null) {
+      // Si no se selecciona ningún filtro, mostrar todas las alertas.
+      filteredAlerts = List.from(allAlerts);
+    } else {
+      filteredAlerts = allAlerts.where((alert) {
+        var alertData = alert.data() as Map<String, dynamic>;
+
+        bool matchesStatus = selectedFilterType == 'Estado' && (selectedFilterValue == null || alertData['status'] == selectedFilterValue);
+        bool matchesUrgency = selectedFilterType == 'Urgencia' && (selectedFilterValue == null || (selectedFilterValue == 'Sí' ? alertData['isUrgent'] == true : alertData['isUrgent'] == false));
+        bool matchesBlock = selectedFilterType == 'Bloque' && (selectedFilterValue == null || alertData['block'] == selectedFilterValue);
+        bool matchesDate = selectedFilterType == 'Fecha' && (selectedDate == null || (alertData['timestamp'] as Timestamp).toDate().toLocal().day == selectedDate!.day && (alertData['timestamp'] as Timestamp).toDate().toLocal().month == selectedDate!.month && (alertData['timestamp'] as Timestamp).toDate().toLocal().year == selectedDate!.year);
+
+        return matchesStatus || matchesUrgency || matchesBlock || matchesDate;
+      }).toList();
+
+      // Si no hay resultados, asegúrate de que `filteredAlerts` esté vacía.
+      if (filteredAlerts.isEmpty) {
+        filteredAlerts = [];
+      }
+    }
+  });
+}
+
+
+
+  Widget _buildFilterOptions() {
+  return Padding(
+    padding: const EdgeInsets.all(8.0),
+    child: Column(
+      children: [
+        DropdownButtonFormField<String>(
+          value: selectedFilterType,
+          items: ['Ninguno', ...filterTypes].map((type) {
+            return DropdownMenuItem(
+              value: type,
+              child: Text(type == 'Ninguno' ? 'Ver todos' : 'Filtrar por $type'),
+            );
+          }).toList(),
+          onChanged: (value) {
+            setState(() {
+              selectedFilterType = value;
+              selectedFilterValue = null;
+              selectedDate = null;
+              if (selectedFilterType == 'Ninguno') {
+                filteredAlerts = List.from(allAlerts); // Muestra todas las alertas si se selecciona "Ninguno".
+              }
+            });
+          },
+          decoration: InputDecoration(
+            border: OutlineInputBorder(),
+            labelText: 'Seleccionar tipo de filtro',
+          ),
+        ),
+        const SizedBox(height: 10),
+        if (selectedFilterType == 'Estado')
+          DropdownButtonFormField<String>(
+            value: selectedFilterValue,
+            items: statusOptions.map((status) {
+              return DropdownMenuItem(
+                value: status,
+                child: Text(status),
+              );
+            }).toList(),
+            onChanged: (value) {
+              setState(() {
+                selectedFilterValue = value;
+              });
+            },
+            decoration: InputDecoration(
+              border: OutlineInputBorder(),
+              labelText: 'Seleccionar estado',
+            ),
+          ),
+        if (selectedFilterType == 'Urgencia')
+          DropdownButtonFormField<String>(
+            value: selectedFilterValue,
+            items: urgencyOptions.map((urgency) {
+              return DropdownMenuItem(
+                value: urgency,
+                child: Text(urgency),
+              );
+            }).toList(),
+            onChanged: (value) {
+              setState(() {
+                selectedFilterValue = value;
+              });
+            },
+            decoration: InputDecoration(
+              border: OutlineInputBorder(),
+              labelText: 'Seleccionar urgencia',
+            ),
+          ),
+        if (selectedFilterType == 'Bloque')
+          DropdownButtonFormField<String>(
+            value: selectedFilterValue,
+            items: blockOptions.map((block) {
+              return DropdownMenuItem(
+                value: block,
+                child: Text(block),
+              );
+            }).toList(),
+            onChanged: (value) {
+              setState(() {
+                selectedFilterValue = value;
+              });
+            },
+            decoration: InputDecoration(
+              border: OutlineInputBorder(),
+              labelText: 'Seleccionar bloque',
+            ),
+          ),
+        if (selectedFilterType == 'Fecha')
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () async {
+                    DateTime? pickedDate = await showDatePicker(
+                      context: context,
+                      initialDate: DateTime.now(),
+                      firstDate: DateTime(2022),
+                      lastDate: DateTime.now(),
+                    );
+                    if (pickedDate != null) {
+                      setState(() {
+                        selectedDate = pickedDate;
+                      });
+                    }
+                  },
+                  child: Text(
+                    selectedDate == null
+                        ? 'Seleccionar fecha'
+                        : DateFormat('dd/MM/yyyy').format(selectedDate!),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        const SizedBox(height: 10),
+        ElevatedButton(
+          onPressed: () {
+            if (selectedFilterType == 'Ninguno') {
+              setState(() {
+                filteredAlerts = List.from(allAlerts);
+              });
+            } else {
+              _applyFilters(); // Llama a la función para aplicar los filtros.
+            }
+          },
+          child: const Text('Buscar'),
+        ),
+      ],
+    ),
+  );
+}
+
+
   Widget _buildAlertList() {
+  return StreamBuilder<QuerySnapshot>(
+    stream: FirebaseFirestore.instance.collection('alerts').orderBy('timestamp', descending: true).snapshots(),
+    builder: (context, snapshot) {
+      if (!snapshot.hasData) {
+        return const Center(child: CircularProgressIndicator());
+      }
+
+      allAlerts = snapshot.data!.docs;
+
+      // Inicializa `filteredAlerts` con todas las alertas si está vacío y no hay filtro activo
+      if (filteredAlerts.isEmpty && (selectedFilterType == null || selectedFilterType == 'Ninguno')) {
+        filteredAlerts = List.from(allAlerts);
+      }
+
+      // Mostrar mensaje si no hay alertas después de aplicar el filtro
+      if (filteredAlerts.isEmpty && selectedFilterType != null && selectedFilterType != 'Ninguno') {
+        return const Center(child: Text('No existen alertas por ese filtrado.'));
+      }
+
+      return ListView.builder(
+        itemCount: filteredAlerts.length,
+        itemBuilder: (context, index) {
+          var alert = filteredAlerts[index].data() as Map<String, dynamic>;
+          String status = alert['status'] ?? 'Enviada';
+
+          return Card(
+            margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.0)),
+            child: ListTile(
+              title: Text(
+                'Alerta en Bloque ${alert['block']} - Salón ${alert['room']}',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Urgente: ${alert['isUrgent'] ? 'Sí' : 'No'}',
+                    style: TextStyle(
+                      color: alert['isUrgent'] ? Colors.red : Colors.black,
+                      fontWeight: alert['isUrgent'] ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                  Text(
+                    'Comentarios: ${alert['comments'].isNotEmpty ? alert['comments'] : 'Sin comentarios'}',
+                    style: const TextStyle(fontStyle: FontStyle.italic),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Estado: $status',
+                    style: TextStyle(
+                      color: status == 'Aceptada' ? Colors.green : status == 'Denegada' ? Colors.red : Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              trailing: IconButton(
+                icon: const Icon(Icons.delete, color: Colors.grey),
+                onPressed: () {
+                  _removeAlertFromList(index);
+                },
+                tooltip: 'Eliminar de la lista',
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
+}
+
+
+
+
+  Widget _buildHistory() {
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('alerts').orderBy('timestamp', descending: true).snapshots(),
+      stream: FirebaseFirestore.instance
+          .collection('alerts')
+          .orderBy('timestamp', descending: true)
+          .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        var alerts = snapshot.data!.docs;
-        if (alerts.isEmpty) {
-          return const Center(child: Text('No hay alertas disponibles.'));
-        }
+        var allAlerts = snapshot.data!.docs;
+        var acceptedAlerts = allAlerts.where((alert) {
+          var alertData = alert.data() as Map<String, dynamic>;
+          return alertData['handledBy'] == userId && alertData['status'] == 'Aceptada';
+        }).toList();
 
-        return ListView.builder(
-          itemCount: alerts.length,
-          itemBuilder: (context, index) {
-            var alert = alerts[index].data() as Map<String, dynamic>;
-            String status = alert['status'] ?? 'Enviada';
+        var rejectedAlerts = allAlerts.where((alert) {
+          var alertData = alert.data() as Map<String, dynamic>;
+          return alertData['handledBy'] == userId && alertData['status'] == 'Denegada';
+        }).toList();
 
-            return Card(
-              margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.0)),
-              child: ListTile(
-                title: Text(
-                  'Alerta en Bloque ${alert['block']} - Salón ${alert['room']}',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+        var completedAlerts = allAlerts.where((alert) {
+          var alertData = alert.data() as Map<String, dynamic>;
+          return alertData['handledBy'] == userId && alertData['status'] == 'Finalizada';
+        }).toList();
+
+        return SingleChildScrollView(
+          child: Column(
+            children: [
+              if (acceptedAlerts.isNotEmpty) ...[
+                const Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Text('Alertas Aceptadas', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Urgente: ${alert['isUrgent'] ? 'Sí' : 'No'}',
-                      style: TextStyle(
-                        color: alert['isUrgent'] ? Colors.red : Colors.black,
-                        fontWeight: alert['isUrgent'] ? FontWeight.bold : FontWeight.normal,
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: acceptedAlerts.length,
+                  itemBuilder: (context, index) {
+                    var alert = acceptedAlerts[index].data() as Map<String, dynamic>;
+                    DateTime timestamp = (alert['timestamp'] as Timestamp).toDate();
+                    return Card(
+                      margin: const EdgeInsets.all(8.0),
+                      child: ListTile(
+                        title: Text('Alerta en Bloque ${alert['block']} - Salón ${alert['room']}'),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Fecha y hora: ${timestamp.toLocal()}'),
+                            Text('Estado: ${alert['status']}'),
+                            Text('Comentarios: ${alert['comments']}'),
+                          ],
+                        ),
                       ),
-                    ),
-                    Text(
-                      'Comentarios: ${alert['comments'].isNotEmpty ? alert['comments'] : 'Sin comentarios'}',
-                      style: const TextStyle(fontStyle: FontStyle.italic),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Estado: $status',
-                      style: TextStyle(
-                        color: status == 'Aceptada' ? Colors.green : status == 'Denegada' ? Colors.red : Colors.black,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
+                    );
+                  },
                 ),
-                trailing: status == 'Enviada'
-                    ? Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.check_circle, color: Colors.green),
-                            onPressed: () {
-                              _handleAlertResponse(alerts[index].id, true);
-                            },
-                            tooltip: 'Aceptar',
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.cancel, color: Colors.red),
-                            onPressed: () {
-                              _handleAlertResponse(alerts[index].id, false);
-                            },
-                            tooltip: 'Rechazar',
-                          ),
-                        ],
-                      )
-                    : null,
-              ),
-            );
-          },
+              ],
+              if (rejectedAlerts.isNotEmpty) ...[
+                const Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Text('Alertas Rechazadas', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ),
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: rejectedAlerts.length,
+                  itemBuilder: (context, index) {
+                    var alert = rejectedAlerts[index].data() as Map<String, dynamic>;
+                    DateTime timestamp = (alert['timestamp'] as Timestamp).toDate();
+                    return Card(
+                      margin: const EdgeInsets.all(8.0),
+                      child: ListTile(
+                        title: Text('Alerta en Bloque ${alert['block']} - Salón ${alert['room']}'),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Fecha y hora: ${timestamp.toLocal()}'),
+                            Text('Estado: ${alert['status']}'),
+                            Text('Comentarios: ${alert['comments']}'),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+              if (completedAlerts.isNotEmpty) ...[
+                const Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Text('Alertas Finalizadas', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ),
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: completedAlerts.length,
+                  itemBuilder: (context, index) {
+                    var alert = completedAlerts[index].data() as Map<String, dynamic>;
+                    DateTime timestamp = (alert['timestamp'] as Timestamp).toDate();
+                    return Card(
+                      margin: const EdgeInsets.all(8.0),
+                      child: ListTile(
+                        title: Text('Alerta en Bloque ${alert['block']} - Salón ${alert['room']}'),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Fecha y hora: ${timestamp.toLocal()}'),
+                            Text('Estado: ${alert['status']}'),
+                            Text('Comentarios: ${alert['comments']}'),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+              if (acceptedAlerts.isEmpty && rejectedAlerts.isEmpty && completedAlerts.isEmpty)
+                const Center(child: Text('No hay alertas en el historial.')),
+            ],
+          ),
         );
       },
     );
-  }
-
-  Future<void> _handleAlertResponse(String alertId, bool accepted) async {
-    try {
-      DateTime acceptedTime = DateTime.now();
-
-      await FirebaseFirestore.instance.collection('alerts').doc(alertId).update({
-        'status': accepted ? 'Aceptada' : 'Denegada',
-        'handledBy': userId,
-        'acceptedTime': accepted ? acceptedTime : null,
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(accepted ? 'Alerta aceptada' : 'Alerta denegada'),
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al responder la alerta: $e'),
-        ),
-      );
-    }
   }
 
   @override
@@ -210,17 +494,18 @@ class _MonitorPanelState extends State<MonitorPanel> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.meeting_room),
-              title: const Text('Salones'),
-              onTap: () {
-                // Implementar navegación a la gestión de salones
-              },
-            ),
-            ListTile(
               leading: const Icon(Icons.notifications),
-              title: const Text('Alertas'),
+              title: const Text('Historial de Alertas'),
               onTap: () {
-                // Implementar navegación a la gestión de alertas
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => Scaffold(
+                      appBar: AppBar(title: const Text('Historial de Alertas')),
+                      body: _buildHistory(),
+                    ),
+                  ),
+                );
               },
             ),
             ListTile(
@@ -240,7 +525,12 @@ class _MonitorPanelState extends State<MonitorPanel> {
           ],
         ),
       ),
-      body: _buildAlertList(),
+      body: Column(
+        children: [
+          _buildFilterOptions(),
+          Expanded(child: _buildAlertList()),
+        ],
+      ),
     );
   }
 }

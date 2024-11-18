@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'profile_page.dart';
 import 'login_page.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
+import 'monitor_list_page.dart';
 
 class ProfessorPanel extends StatefulWidget {
   const ProfessorPanel({super.key});
@@ -384,6 +385,19 @@ class _ProfessorPanelState extends State<ProfessorPanel> {
                 );
               },
             ),
+            ListTile(
+  leading: const Icon(Icons.group),
+  title: const Text('Monitores'),
+  onTap: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const MonitorListPage(),
+      ),
+    );
+  },
+),
+
             ListTile(
               leading: const Icon(Icons.logout),
               title: const Text('Cerrar sesión'),
