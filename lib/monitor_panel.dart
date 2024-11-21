@@ -312,19 +312,63 @@ class _MonitorPanelState extends State<MonitorPanel> {
                   ),
                 ],
               ),
-              trailing: IconButton(
-                icon: const Icon(Icons.delete, color: Colors.grey),
-                onPressed: () {
-                  _removeAlertFromList(index);
-                },
-                tooltip: 'Eliminar de la lista',
-              ),
+              trailing: status == 'Enviada'
+    ? Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.check, color: Colors.green),
+            onPressed: () {
+              _updateAlertStatus(filteredAlerts[index].id, 'Aceptada');
+            },
+            tooltip: 'Aceptar alerta',
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, color: Colors.red),
+            onPressed: () {
+              _updateAlertStatus(filteredAlerts[index].id, 'Denegada');
+            },
+            tooltip: 'Denegar alerta',
+          ),
+        ],
+      )
+    : null,
+
             ),
           );
         },
       );
     },
   );
+}
+
+void _updateAlertStatus(String alertId, String newStatus) async {
+  try {
+    Map<String, dynamic> updateData = {
+      'status': newStatus,
+      'handledBy': userId, // ID del monitor que maneja la alerta
+    };
+
+    // Si el nuevo estado es "Aceptada", añadimos el campo `acceptedTime`
+    if (newStatus == 'Aceptada') {
+      updateData['acceptedTime'] = Timestamp.now();
+    }
+
+    await FirebaseFirestore.instance.collection('alerts').doc(alertId).update(updateData);
+
+    // Actualiza la interfaz eliminando la alerta del estado actual
+    setState(() {
+      filteredAlerts.removeWhere((alert) => alert.id == alertId);
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Alerta $newStatus correctamente')),
+    );
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Error al actualizar el estado de la alerta')),
+    );
+  }
 }
 
 

@@ -1,5 +1,12 @@
+import 'package:app_monitores/monitor_ranking_page.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'alerts_management.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
+import 'package:open_file/open_file.dart';
 
 class ReportPage extends StatefulWidget {
   const ReportPage({super.key});
@@ -10,17 +17,28 @@ class ReportPage extends StatefulWidget {
 
 class _ReportPageState extends State<ReportPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  late QuerySnapshot alertsSnapshot;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<String> _getUserName(String userId) async {
+    if (userId.isEmpty) return 'N/A';
+
+    final userDoc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
+    if (userDoc.exists) {
+      return userDoc.data()?['name'] ?? 'N/A';
+    }
+    return 'N/A';
   }
 
   Widget _buildStatisticsTab() {
@@ -31,19 +49,18 @@ class _ReportPageState extends State<ReportPage> with SingleTickerProviderStateM
           return const Center(child: CircularProgressIndicator());
         }
 
-        // Procesar estadísticas
+        alertsSnapshot = snapshot.data!;
+
         int totalAlerts = 0;
         int acceptedAlerts = 0;
         int rejectedAlerts = 0;
         int completedAlerts = 0;
-        int criticalAlerts = 0;
-        int totalResponseTimeInSeconds = 0; // Para el cálculo del promedio
+        int totalResponseTimeInSeconds = 0;
         int responseCount = 0;
 
         for (var alert in snapshot.data!.docs) {
           var data = alert.data() as Map<String, dynamic>;
           String status = data['status'] ?? 'Enviada';
-          bool isUrgent = data['isUrgent'] ?? false;
           String responseTime = data['responseTime'] ?? "0 h 0 min 0 sec";
 
           totalAlerts++;
@@ -52,49 +69,52 @@ class _ReportPageState extends State<ReportPage> with SingleTickerProviderStateM
           if (status == 'Finalizada') {
             completedAlerts++;
             if (responseTime.isNotEmpty) {
-              // Convertir el tiempo de respuesta a segundos
               int responseTimeInSeconds = _convertResponseTimeToSeconds(responseTime);
               totalResponseTimeInSeconds += responseTimeInSeconds;
               responseCount++;
             }
           }
-          if (isUrgent) criticalAlerts++;
         }
 
         double averageResponseTime = responseCount > 0
             ? totalResponseTimeInSeconds / responseCount
             : 0.0;
 
-        // Construir la interfaz de estadísticas
-        return Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                "Resumen Estadístico",
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 20),
-              _buildStatisticItem("Total de Alertas", totalAlerts),
-              _buildStatisticItem("Alertas Aceptadas", acceptedAlerts),
-              _buildStatisticItem("Alertas Rechazadas", rejectedAlerts),
-              _buildStatisticItem("Alertas Finalizadas", completedAlerts),
-              _buildStatisticItem("Alertas Críticas (Urgentes)", criticalAlerts),
-              _buildStatisticItem(
-                "Promedio de Tiempo de Respuesta",
-                averageResponseTime > 0
-                    ? "${_formatSecondsToReadableTime(averageResponseTime.toInt())}"
-                    : "No disponible",
-              ),
-            ],
+        return SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Resumen Estadístico",
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 20),
+                _buildStatisticItem("Total de Alertas", totalAlerts),
+                _buildStatisticItem("Alertas Aceptadas", acceptedAlerts),
+                _buildStatisticItem("Alertas Rechazadas", rejectedAlerts),
+                _buildStatisticItem("Alertas Finalizadas", completedAlerts),
+                _buildStatisticItem(
+                  "Promedio de Tiempo de Respuesta",
+                  averageResponseTime > 0
+                      ? "${_formatSecondsToReadableTime(averageResponseTime.toInt())}"
+                      : "No disponible",
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.picture_as_pdf),
+                  label: const Text("Exportar a PDF"),
+                  onPressed: _exportToPDF,
+                ),
+              ],
+            ),
           ),
         );
       },
     );
   }
 
-  // Método para convertir una cadena de tiempo a segundos
   int _convertResponseTimeToSeconds(String responseTime) {
     final regex = RegExp(r'(\d+) h (\d+) min (\d+) sec');
     final match = regex.firstMatch(responseTime);
@@ -106,10 +126,9 @@ class _ReportPageState extends State<ReportPage> with SingleTickerProviderStateM
 
       return (hours * 3600) + (minutes * 60) + seconds;
     }
-    return 0; // Si el formato no coincide, retornar 0
+    return 0;
   }
 
-  // Método para convertir segundos a un formato legible
   String _formatSecondsToReadableTime(int seconds) {
     int hours = seconds ~/ 3600;
     seconds %= 3600;
@@ -129,13 +148,75 @@ class _ReportPageState extends State<ReportPage> with SingleTickerProviderStateM
             title,
             style: const TextStyle(fontSize: 16),
           ),
-          Text(
-            value.toString(),
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          Flexible(
+            child: Text(
+              value.toString(),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.end,
+            ),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _exportToPDF() async {
+    try {
+      final pdf = pw.Document();
+
+      List<List<String>> dataRows = [
+        ["Salón", "Estado", "Urgente", "Monitor", "Profesor", "Tiempo Respuesta", "Fecha"]
+      ];
+
+      for (var doc in alertsSnapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final monitorName = await _getUserName(data['handledBy'] ?? '');
+        final professorName = await _getUserName(data['professorId'] ?? '');
+
+        dataRows.add([
+          data['room'] ?? 'Desconocido',
+          data['status'] ?? 'Sin estado',
+          data['isUrgent'] == true ? 'Sí' : 'No',
+          monitorName,
+          professorName,
+          data['responseTime'] ?? 'N/A',
+          data['timestamp']?.toDate().toString() ?? 'Sin fecha',
+        ]);
+      }
+
+      pdf.addPage(
+        pw.Page(
+          build: (pw.Context context) => pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text(
+                "Informe de Alertas",
+                style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold),
+              ),
+              pw.SizedBox(height: 20),
+              pw.Table.fromTextArray(context: context, data: dataRows),
+            ],
+          ),
+        ),
+      );
+
+      final downloadsDirectory = Directory("/storage/emulated/0/Download");
+      if (!downloadsDirectory.existsSync()) {
+        downloadsDirectory.createSync(recursive: true);
+      }
+      final file = File("${downloadsDirectory.path}/informe_alertas.pdf");
+      await file.writeAsBytes(await pdf.save());
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("PDF exportado: ${file.path}")),
+      );
+
+      OpenFile.open(file.path);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error al exportar PDF: $e")),
+      );
+    }
   }
 
   @override
@@ -143,23 +224,27 @@ class _ReportPageState extends State<ReportPage> with SingleTickerProviderStateM
     return Scaffold(
       appBar: AppBar(
         title: const Text('Informes'),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(icon: Icon(Icons.pie_chart), text: "Estadísticas"),
-            Tab(icon: Icon(Icons.list), text: "Alertas"),
-            Tab(icon: Icon(Icons.people), text: "Monitores"),
-            Tab(icon: Icon(Icons.report), text: "Alertas Críticas"),
-          ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(48.0),
+          child: Center(
+            child: TabBar(
+              controller: _tabController,
+              isScrollable: false,
+              tabs: const [
+                Tab(icon: Icon(Icons.pie_chart), text: "Estadísticas"),
+                Tab(icon: Icon(Icons.list), text: "Alertas"),
+                Tab(icon: Icon(Icons.people), text: "Monitores"),
+              ],
+            ),
+          ),
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
           _buildStatisticsTab(),
-          const Center(child: Text("Gestión de Alertas (Próximamente)")),
-          const Center(child: Text("Ranking de Monitores (Próximamente)")),
-          const Center(child: Text("Alertas Críticas (Próximamente)")),
+          const AlertsManagement(),
+          const MonitorRankingPage(),
         ],
       ),
     );

@@ -152,69 +152,110 @@ class _ProfessorPanelState extends State<ProfessorPanel> {
   }
 
   Future<void> _finalizeAlert(String alertId, String monitorId) async {
-    try {
-      DateTime now = DateTime.now();
+  try {
+    DateTime now = DateTime.now(); // Hora actual para completedTime
 
-      var alertDoc = await FirebaseFirestore.instance.collection('alerts').doc(alertId).get();
-      if (alertDoc.exists && alertDoc['acceptedTime'] != null) {
-        DateTime acceptedTime = (alertDoc['acceptedTime'] as Timestamp).toDate();
-        Duration responseTime = now.difference(acceptedTime);
+    // Obtener la alerta
+    var alertDoc = await FirebaseFirestore.instance.collection('alerts').doc(alertId).get();
+    if (alertDoc.exists) {
+      Map<String, dynamic>? alertData = alertDoc.data();
+      if (alertData != null) {
+        // Verificar si `acceptedTime` existe y calcular `responseTime`
+        if (alertData.containsKey('acceptedTime') && alertData['acceptedTime'] != null) {
+          DateTime acceptedTime = (alertData['acceptedTime'] as Timestamp).toDate();
+          Duration responseTime = now.difference(acceptedTime);
 
-        // Formatear el tiempo de respuesta en horas, minutos y segundos
-        String responseTimeFormatted = '${responseTime.inHours} h ${responseTime.inMinutes % 60} min ${responseTime.inSeconds % 60} sec';
+          // Formatear el tiempo de respuesta en horas, minutos y segundos
+          String responseTimeFormatted =
+              '${responseTime.inHours} h ${responseTime.inMinutes % 60} min ${responseTime.inSeconds % 60} sec';
 
-        await FirebaseFirestore.instance.collection('alerts').doc(alertId).update({
-          'status': 'Finalizada',
-          'completedTime': now,
-          'responseTime': responseTimeFormatted,
-        });
-
-        var monitorDoc = await FirebaseFirestore.instance.collection('users').doc(monitorId).get();
-        if (monitorDoc.exists) {
-          int totalResponses = (monitorDoc['totalResponses'] ?? 0) as int;
-          int totalResponseTime = (monitorDoc['totalResponseTime'] ?? 0) as int;
-          double totalStars = (monitorDoc.data()!.containsKey('totalStars') ? monitorDoc['totalStars'] : 0.0) as double;
-          double averageStars = (monitorDoc.data()!.containsKey('averageStars') ? monitorDoc['averageStars'] : 0.0) as double;
-
-          // Convertir el tiempo de respuesta a segundos para el cálculo
-          int responseTimeInSeconds = responseTime.inSeconds;
-          totalResponses += 1;
-          totalResponseTime += responseTimeInSeconds;
-
-          // Calcular el tiempo promedio en horas, minutos y segundos
-          int averageResponseTimeInSeconds = (totalResponseTime / totalResponses).round();
-          String averageResponseTimeFormatted =
-              '${(averageResponseTimeInSeconds ~/ 3600)} h ${(averageResponseTimeInSeconds % 3600 ~/ 60)} min ${(averageResponseTimeInSeconds % 60)} sec';
-
-          // Mostrar el diálogo para calificar al monitor
-          double rating = await _showRatingDialog();
-
-          // Actualizar el total de estrellas y el promedio
-          totalStars += rating;
-          averageStars = totalStars / totalResponses;
-
-          // Actualizar los datos del monitor
-          await FirebaseFirestore.instance.collection('users').doc(monitorId).update({
-            'totalResponses': totalResponses,
-            'totalResponseTime': totalResponseTime,
-            'averageResponseTime': averageResponseTimeFormatted,
-            'totalStars': totalStars,
-            'averageStars': averageStars,
+          // Actualizar la alerta con el estado finalizado
+          await FirebaseFirestore.instance.collection('alerts').doc(alertId).update({
+            'status': 'Finalizada',
+            'completedTime': Timestamp.fromDate(now),
+            'responseTime': responseTimeFormatted,
           });
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Alerta finalizada, tiempo de respuesta y calificación registrados.')),
-          );
+          // Obtener datos del monitor
+          var monitorDoc = await FirebaseFirestore.instance.collection('users').doc(monitorId).get();
+          if (monitorDoc.exists) {
+            Map<String, dynamic>? monitorData = monitorDoc.data();
+            if (monitorData != null) {
+              // Inicializar campos si no existen
+              int totalResponses = (monitorData['totalResponses'] ?? 0) as int;
+              String totalResponseTimeStr = (monitorData['totalResponseTime'] ?? '0 h 0 min 0 sec') as String;
+              double totalStars = (monitorData['totalStars'] ?? 0.0) as double;
+
+              // Convertir `totalResponseTime` de formato legible a duración total en segundos
+              int totalResponseTimeInSeconds = _convertReadableTimeToSeconds(totalResponseTimeStr);
+
+              // Actualizar campos
+              totalResponses += 1;
+              totalResponseTimeInSeconds += responseTime.inSeconds;
+
+              // Convertir `totalResponseTimeInSeconds` de nuevo a formato legible
+              String updatedTotalResponseTime =
+                  '${(totalResponseTimeInSeconds ~/ 3600)} h ${(totalResponseTimeInSeconds % 3600 ~/ 60)} min ${(totalResponseTimeInSeconds % 60)} sec';
+
+              // Calcular `averageResponseTime` en segundos
+              int averageResponseTimeInSeconds = (totalResponseTimeInSeconds / totalResponses).round();
+              String averageResponseTimeFormatted =
+                  '${(averageResponseTimeInSeconds ~/ 3600)} h ${(averageResponseTimeInSeconds % 3600 ~/ 60)} min ${(averageResponseTimeInSeconds % 60)} sec';
+
+              // Mostrar el diálogo para calificar al monitor
+              double rating = await _showRatingDialog();
+
+              // Actualizar el total de estrellas y el promedio
+              totalStars += rating;
+              double averageStars = totalStars / totalResponses;
+
+              // Actualizar los datos del monitor
+              await FirebaseFirestore.instance.collection('users').doc(monitorId).update({
+                'totalResponses': totalResponses,
+                'totalResponseTime': updatedTotalResponseTime,
+                'averageResponseTime': averageResponseTimeFormatted,
+                'totalStars': totalStars,
+                'averageStars': averageStars,
+              });
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Alerta finalizada, tiempo de respuesta y calificación registrados.')),
+              );
+            }
+          } else {
+            throw Exception('El documento del monitor no existe.');
+          }
+        } else {
+          throw Exception('El campo "acceptedTime" no existe o es nulo en el documento de la alerta.');
         }
       } else {
-        throw Exception('El campo "acceptedTime" no existe o es nulo en el documento de la alerta.');
+        throw Exception('El documento de la alerta está vacío.');
       }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al finalizar la alerta: $e')),
-      );
+    } else {
+      throw Exception('El documento de la alerta no existe.');
     }
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Error al finalizar la alerta: $e')),
+    );
   }
+}
+
+// Función para convertir tiempo de respuesta legible a segundos
+int _convertReadableTimeToSeconds(String readableTime) {
+  final regex = RegExp(r'(\d+) h (\d+) min (\d+) sec');
+  final match = regex.firstMatch(readableTime);
+
+  if (match != null) {
+    int hours = int.parse(match.group(1)!);
+    int minutes = int.parse(match.group(2)!);
+    int seconds = int.parse(match.group(3)!);
+    return (hours * 3600) + (minutes * 60) + seconds;
+  }
+  return 0;
+}
+
+
 
   Future<double> _showRatingDialog() async {
     double rating = 3.0; // Calificación inicial por defecto
