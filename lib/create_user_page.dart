@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'auth_service.dart';
 import 'database/database.dart';
 import 'models/user_model.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class CreateUserPage extends StatefulWidget {
   @override
@@ -34,6 +35,22 @@ class _CreateUserPageState extends State<CreateUserPage> {
 
   String errorMessage = '';
 
+  Future<bool> _checkIfUserExists(String email, String id) async {
+    // Verificar si el correo ya existe
+    final QuerySnapshot emailCheck = await FirebaseFirestore.instance
+        .collection('users')
+        .where('email', isEqualTo: email)
+        .get();
+
+    // Verificar si la identificación ya existe
+    final QuerySnapshot idCheck = await FirebaseFirestore.instance
+        .collection('users')
+        .where('id', isEqualTo: id)
+        .get();
+
+    return emailCheck.docs.isNotEmpty || idCheck.docs.isNotEmpty;
+  }
+
   void registerUser() async {
     String email = emailController.text.trim();
     String password = passwordController.text.trim();
@@ -52,6 +69,15 @@ class _CreateUserPageState extends State<CreateUserPage> {
     if (selectedRole == 'Monitor' && selectedRooms.isEmpty) {
       setState(() {
         errorMessage = 'Debe seleccionar al menos un salón para el monitor.';
+      });
+      return;
+    }
+
+    // Verificar si el correo o la identificación ya existen
+    bool userExists = await _checkIfUserExists(email, id);
+    if (userExists) {
+      setState(() {
+        errorMessage = 'El correo o la identificación ya están registrados.';
       });
       return;
     }
