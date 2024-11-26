@@ -14,17 +14,17 @@ class CustomStyles {
   );
 
   static ButtonStyle elevatedButtonStyle = ElevatedButton.styleFrom(
-    backgroundColor: primaryColor, // Color de fondo actualizado
-    foregroundColor: Colors.white, // Color del texto
+    backgroundColor: primaryColor, 
+    foregroundColor: Colors.white, 
     padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 28),
     shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(20), // Borde redondeado más pronunciado
+      borderRadius: BorderRadius.circular(20), 
     ),
-    elevation: 5, // Elevación para dar un efecto de sombra
+    elevation: 5, 
   );
 
   static const TextStyle buttonTextStyle = TextStyle(
-    fontSize: 18, // Tamaño de texto más grande para mayor visibilidad
+    fontSize: 18, 
     fontWeight: FontWeight.bold,
     color: Colors.white,
   );
@@ -34,7 +34,7 @@ class CustomStyles {
       labelText: label,
       labelStyle: labelTextStyle,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(20), // Bordes redondeados para los campos de texto
+        borderRadius: BorderRadius.circular(20), 
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(20),

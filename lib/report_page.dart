@@ -2,9 +2,9 @@ import 'package:app_monitores/monitor_ranking_page.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'alerts_management.dart';
-import 'package:pdf/pdf.dart';
+
 import 'package:pdf/widgets.dart' as pw;
-import 'package:path_provider/path_provider.dart';
+
 import 'dart:io';
 import 'package:open_file/open_file.dart';
 

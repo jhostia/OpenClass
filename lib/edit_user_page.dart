@@ -201,7 +201,7 @@ class EditUserPageState extends State<EditUserPage> {
                           phone: phoneController.text,
                           email: emailController.text,
                           username: widget.user.username,
-                          password: widget.user.password, // No se muestra ni se edita la contraseña
+                          password: widget.user.password, 
                           role: widget.user.role,
                           rooms: widget.user.role == 'Monitor' ? selectedRooms : [],
                         );

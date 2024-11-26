@@ -9,13 +9,13 @@ class AlertsManagement extends StatefulWidget {
 }
 
 class _AlertsManagementState extends State<AlertsManagement> {
-  String _selectedFilter = "Todas"; // Filtro por defecto
+  String _selectedFilter = "Todas"; 
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        _buildFilters(), // Botones de filtro
+        _buildFilters(), 
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance.collection('alerts').snapshots(),
@@ -33,7 +33,7 @@ class _AlertsManagementState extends State<AlertsManagement> {
                   var data = alert.data() as Map<String, dynamic>;
                   String status = data['status']?.toString().trim() ?? 'Enviada';
 
-                  // Comparar el estado con el filtro seleccionado
+                  
                   if (_selectedFilter == "Finalizadas" && status == "Finalizada") {
                     return true;
                   } else if (_selectedFilter == "Aceptadas" && status == "Aceptada") {
@@ -79,8 +79,8 @@ class _AlertsManagementState extends State<AlertsManagement> {
     return Padding(
       padding: const EdgeInsets.all(8.0),
       child: Wrap(
-        spacing: 8.0, // Espaciado horizontal entre botones
-        runSpacing: 8.0, // Espaciado vertical si los botones se desbordan
+        spacing: 8.0, 
+        runSpacing: 8.0, 
         children: filters.map((filterName) => _buildFilterButton(filterName)).toList(),
       ),
     );
@@ -97,9 +97,9 @@ class _AlertsManagementState extends State<AlertsManagement> {
         backgroundColor: _selectedFilter == filterName ? Colors.blue : Colors.grey[300],
         foregroundColor: _selectedFilter == filterName ? Colors.white : Colors.black,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20), // Botones redondeados
+          borderRadius: BorderRadius.circular(20), 
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), // Tamaño del botón
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       ),
       child: Text(
         filterName,

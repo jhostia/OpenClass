@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'login_page.dart'; // Asegúrate de que la ruta sea correcta.
+import 'login_page.dart'; 
 
 class SplashScreen extends StatefulWidget {
   @override
@@ -14,7 +14,7 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   void _navigateToLogin() async {
-    // Espera 3 segundos antes de navegar al LoginPage.
+    
     await Future.delayed(const Duration(seconds: 3));
     if (mounted) {
       Navigator.pushReplacement(
@@ -27,7 +27,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white, // Cambia según el color de tu marca
+      backgroundColor: Color.fromARGB(255, 238, 241, 246), 
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

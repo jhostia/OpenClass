@@ -4,7 +4,7 @@ class User {
   final String phone;
   final String email;
   final String username;
-  final String? password; // Cambiado a opcional
+  final String? password; 
   final String role;
   final List<String> blocks;
   final List<String> floors;
@@ -19,7 +19,7 @@ class User {
     required this.phone,
     required this.email,
     required this.username,
-    this.password, // Campo opcional
+    this.password, 
     required this.role,
     this.blocks = const [],
     this.floors = const [],

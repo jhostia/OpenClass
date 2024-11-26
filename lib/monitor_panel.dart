@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'profile_page.dart';
 import 'login_page.dart';
 import 'package:intl/intl.dart';
+import 'chat_page.dart';
 
 
 class MonitorPanel extends StatefulWidget {
@@ -112,15 +113,13 @@ class _MonitorPanelState extends State<MonitorPanel> {
         return matchesStatus || matchesUrgency || matchesBlock || matchesDate;
       }).toList();
 
-      // Si no hay resultados, asegúrate de que `filteredAlerts` esté vacía.
+     
       if (filteredAlerts.isEmpty) {
         filteredAlerts = [];
       }
     }
   });
 }
-
-
 
   Widget _buildFilterOptions() {
   return Padding(
@@ -253,7 +252,6 @@ class _MonitorPanelState extends State<MonitorPanel> {
   );
 }
 
-
   Widget _buildAlertList() {
   return StreamBuilder<QuerySnapshot>(
     stream: FirebaseFirestore.instance.collection('alerts').orderBy('timestamp', descending: true).snapshots(),
@@ -332,7 +330,7 @@ class _MonitorPanelState extends State<MonitorPanel> {
           ),
         ],
       )
-    : null,
+      : null,
 
             ),
           );
@@ -346,12 +344,35 @@ void _updateAlertStatus(String alertId, String newStatus) async {
   try {
     Map<String, dynamic> updateData = {
       'status': newStatus,
-      'handledBy': userId, // ID del monitor que maneja la alerta
+      'handledBy': userId, 
     };
 
-    // Si el nuevo estado es "Aceptada", añadimos el campo `acceptedTime`
+    // Si el nuevo estado es "Aceptada", añadimos el campo `acceptedTime` y creamos un chat
     if (newStatus == 'Aceptada') {
       updateData['acceptedTime'] = Timestamp.now();
+
+      // Obtener la información de la alerta para usar en el chat
+      DocumentSnapshot alertSnapshot =
+          await FirebaseFirestore.instance.collection('alerts').doc(alertId).get();
+
+      if (alertSnapshot.exists) {
+        var alertData = alertSnapshot.data() as Map<String, dynamic>;
+
+        // Verificar si el campo `createdBy` (profesor que creó la alerta) está presente
+        if (alertData.containsKey('professorId') && alertData['professorId'] != null) {
+          await FirebaseFirestore.instance.collection('chats').doc(alertId).set({
+            'alertId': alertId,
+            'professorId': alertData['professorId'], 
+            'monitorId': userId, 
+            'messages': [], 
+            'createdAt': Timestamp.now(),
+          });
+        } else {
+          throw Exception('El campo "professorId" no está definido en la alerta.');
+        }
+      } else {
+        throw Exception('No se encontró el documento de la alerta.');
+      }
     }
 
     await FirebaseFirestore.instance.collection('alerts').doc(alertId).update(updateData);
@@ -366,139 +387,114 @@ void _updateAlertStatus(String alertId, String newStatus) async {
     );
   } catch (e) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Error al actualizar el estado de la alerta')),
+      SnackBar(content: Text('Error al actualizar el estado de la alerta: $e')),
     );
   }
 }
 
+ Widget _buildHistory() {
+  return StreamBuilder<QuerySnapshot>(
+    stream: FirebaseFirestore.instance
+        .collection('alerts')
+        .orderBy('timestamp', descending: true)
+        .snapshots(),
+    builder: (context, snapshot) {
+      if (!snapshot.hasData) {
+        return const Center(child: CircularProgressIndicator());
+      }
 
+      var allAlerts = snapshot.data!.docs;
+      var acceptedAlerts = allAlerts.where((alert) {
+        var alertData = alert.data() as Map<String, dynamic>;
+        return alertData['handledBy'] == userId && alertData['status'] == 'Aceptada';
+      }).toList();
 
-
-  Widget _buildHistory() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('alerts')
-          .orderBy('timestamp', descending: true)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        var allAlerts = snapshot.data!.docs;
-        var acceptedAlerts = allAlerts.where((alert) {
-          var alertData = alert.data() as Map<String, dynamic>;
-          return alertData['handledBy'] == userId && alertData['status'] == 'Aceptada';
-        }).toList();
-
-        var rejectedAlerts = allAlerts.where((alert) {
-          var alertData = alert.data() as Map<String, dynamic>;
-          return alertData['handledBy'] == userId && alertData['status'] == 'Denegada';
-        }).toList();
-
-        var completedAlerts = allAlerts.where((alert) {
-          var alertData = alert.data() as Map<String, dynamic>;
-          return alertData['handledBy'] == userId && alertData['status'] == 'Finalizada';
-        }).toList();
-
-        return SingleChildScrollView(
-          child: Column(
-            children: [
-              if (acceptedAlerts.isNotEmpty) ...[
-                const Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: Text('Alertas Aceptadas', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                ),
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: acceptedAlerts.length,
-                  itemBuilder: (context, index) {
-                    var alert = acceptedAlerts[index].data() as Map<String, dynamic>;
-                    DateTime timestamp = (alert['timestamp'] as Timestamp).toDate();
-                    return Card(
-                      margin: const EdgeInsets.all(8.0),
-                      child: ListTile(
-                        title: Text('Alerta en Bloque ${alert['block']} - Salón ${alert['room']}'),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Fecha y hora: ${timestamp.toLocal()}'),
-                            Text('Estado: ${alert['status']}'),
-                            Text('Comentarios: ${alert['comments']}'),
-                          ],
-                        ),
+      return SingleChildScrollView(
+        child: Column(
+          children: [
+            if (acceptedAlerts.isNotEmpty) ...[
+              const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Text('Alertas Aceptadas', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              ),
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: acceptedAlerts.length,
+                itemBuilder: (context, index) {
+                  var alert = acceptedAlerts[index].data() as Map<String, dynamic>;
+                  DateTime timestamp = (alert['timestamp'] as Timestamp).toDate();
+                  return Card(
+                    margin: const EdgeInsets.all(8.0),
+                    child: ListTile(
+                      title: Text('Alerta en Bloque ${alert['block']} - Salón ${alert['room']}'),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Fecha y hora: ${timestamp.toLocal()}'),
+                          Text('Estado: ${alert['status']}'),
+                          Text('Comentarios: ${alert['comments']}'),
+                        ],
                       ),
-                    );
-                  },
-                ),
-              ],
-              if (rejectedAlerts.isNotEmpty) ...[
-                const Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: Text('Alertas Rechazadas', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                ),
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: rejectedAlerts.length,
-                  itemBuilder: (context, index) {
-                    var alert = rejectedAlerts[index].data() as Map<String, dynamic>;
-                    DateTime timestamp = (alert['timestamp'] as Timestamp).toDate();
-                    return Card(
-                      margin: const EdgeInsets.all(8.0),
-                      child: ListTile(
-                        title: Text('Alerta en Bloque ${alert['block']} - Salón ${alert['room']}'),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Fecha y hora: ${timestamp.toLocal()}'),
-                            Text('Estado: ${alert['status']}'),
-                            Text('Comentarios: ${alert['comments']}'),
-                          ],
-                        ),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.chat, color: Colors.blue),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ChatPage(
+                                alertId: acceptedAlerts[index].id,
+                                professorId: alert['professorId'],
+                                monitorId: userId,
+                              ),
+                            ),
+                          );
+                        },
+                        tooltip: 'Abrir chat',
                       ),
-                    );
-                  },
-                ),
-              ],
-              if (completedAlerts.isNotEmpty) ...[
-                const Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: Text('Alertas Finalizadas', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                ),
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: completedAlerts.length,
-                  itemBuilder: (context, index) {
-                    var alert = completedAlerts[index].data() as Map<String, dynamic>;
-                    DateTime timestamp = (alert['timestamp'] as Timestamp).toDate();
-                    return Card(
-                      margin: const EdgeInsets.all(8.0),
-                      child: ListTile(
-                        title: Text('Alerta en Bloque ${alert['block']} - Salón ${alert['room']}'),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Fecha y hora: ${timestamp.toLocal()}'),
-                            Text('Estado: ${alert['status']}'),
-                            Text('Comentarios: ${alert['comments']}'),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ],
-              if (acceptedAlerts.isEmpty && rejectedAlerts.isEmpty && completedAlerts.isEmpty)
-                const Center(child: Text('No hay alertas en el historial.')),
+                    ),
+                  );
+                },
+              ),
             ],
+          ],
+        ),
+      );
+    },
+  );
+}
+
+void _showLogoutConfirmationDialog(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: const Text('Confirmar'),
+        content: const Text('¿Estás seguro de que deseas cerrar sesión?'),
+        actions: <Widget>[
+          TextButton(
+            child: const Text('No'),
+            onPressed: () {
+              Navigator.of(context).pop(); 
+            },
           ),
-        );
-      },
-    );
-  }
+          TextButton(
+            child: const Text('Sí'),
+            onPressed: () {
+              Navigator.of(context).pop(); 
+              FirebaseAuth.instance.signOut();
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => const LoginPage()),
+                (Route<dynamic> route) => false,
+              );
+            },
+          ),
+        ],
+      );
+    },
+  );
+}
 
   @override
   Widget build(BuildContext context) {
@@ -555,7 +551,9 @@ void _updateAlertStatus(String alertId, String newStatus) async {
             ListTile(
               leading: const Icon(Icons.logout),
               title: const Text('Cerrar sesión'),
-              onTap: _logout,
+              onTap: () {
+              _showLogoutConfirmationDialog(context);
+              },
             ),
             const Divider(),
             SwitchListTile(

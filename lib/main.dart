@@ -1,6 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'splashscreen.dart'; // Asegúrate de que la ruta sea correcta.
+import 'splashscreen.dart'; 
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -9,7 +9,7 @@ void main() async {
       apiKey: "AIzaSyBGrYR-kZm8HW3AcJA1uqRQlQZpsQZY2kk",
       authDomain: "openclass-e2614.firebaseapp.com",
       projectId: "openclass-e2614",
-      storageBucket: "openclass-e2614.appspot.com", // Corregí el dominio aquí
+      storageBucket: "openclass-e2614.appspot.com", 
       messagingSenderId: "131931693412",
       appId: "1:131931693412:web:48a8cd641b16bd3f225a71",
       measurementId: "G-XLWFJZTF5J",
@@ -28,7 +28,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: SplashScreen(), // Cambiado para iniciar con la SplashScreen
+      home: SplashScreen(), 
     );
   }
 }

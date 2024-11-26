@@ -11,7 +11,7 @@ class Database {
       print("Usuario guardado exitosamente en Firestore.");
     } catch (e) {
       print("Error al guardar el usuario: $e");
-      throw e; // Lanza el error para que sea capturado en la UI
+      throw e; 
     }
   }
 
@@ -21,7 +21,7 @@ class Database {
       print("Usuario actualizado exitosamente en Firestore.");
     } catch (e) {
       print("Error al actualizar el usuario: $e");
-      throw e; // Lanza el error para que sea capturado en la UI
+      throw e; 
     }
   }
 
@@ -31,7 +31,7 @@ class Database {
       print("Usuario eliminado exitosamente.");
     } catch (e) {
       print("Error al eliminar el usuario: $e");
-      throw e; // Lanza el error para que sea capturado en la UI
+      throw e; 
     }
   }
 
@@ -43,7 +43,7 @@ class Database {
       }).toList();
     } catch (e) {
       print("Error al obtener usuarios: $e");
-      throw e; // Esto ayudará a capturar errores en la UI
+      throw e; 
     }
   }
 
@@ -59,7 +59,5 @@ class Database {
     return null;
   }
 }
-
-
 }
 

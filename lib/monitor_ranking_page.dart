@@ -37,91 +37,87 @@ class MonitorRankingPage extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Ranking de Monitores'),
-        automaticallyImplyLeading: false, // Elimina el espacio del AppBar
-      ),
-      body: FutureBuilder<List<Map<String, dynamic>>>(
-        future: _fetchMonitors(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('No se encontraron monitores.'));
-          }
+Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBar(
+      title: const Text('Ranking de Monitores'),
+      automaticallyImplyLeading: false, // Elimina el espacio del AppBar
+    ),
+    body: FutureBuilder<List<Map<String, dynamic>>>(
+      future: _fetchMonitors(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        } else if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const Center(child: Text('No se encontraron monitores.'));
+        }
 
-          List<Map<String, dynamic>> monitors = snapshot.data!;
+        List<Map<String, dynamic>> monitors = snapshot.data!;
 
-          // Ordenar monitores por tiempo promedio de respuesta, manejando valores null o inválidos
-          monitors.sort((a, b) {
-            dynamic aTime = a['averageResponseTime'] ?? double.infinity;
-            dynamic bTime = b['averageResponseTime'] ?? double.infinity;
+        // Ordenar monitores por promedio de estrellas, de mayor a menor
+        monitors.sort((a, b) {
+          double aStars = (a['averageStars'] ?? 0.0).toDouble();
+          double bStars = (b['averageStars'] ?? 0.0).toDouble();
+          return bStars.compareTo(aStars); // Orden descendente
+        });
 
-            if (aTime is String) aTime = double.infinity; // Cadenas al final
-            if (bTime is String) bTime = double.infinity;
+        return ListView.builder(
+          itemCount: monitors.length,
+          itemBuilder: (context, index) {
+            var monitor = monitors[index];
 
-            return (aTime as double).compareTo(bTime as double);
-          });
+            double averageStars = (monitor['averageStars'] ?? 0.0).toDouble();
+            dynamic averageResponseTime = monitor['averageResponseTime'];
+            int totalResponses = monitor['totalResponses'] ?? 0;
+            String monitorId = monitor['id'] ?? 'Sin ID';
 
-          return ListView.builder(
-            itemCount: monitors.length,
-            itemBuilder: (context, index) {
-              var monitor = monitors[index];
-
-              double averageStars = (monitor['averageStars'] ?? 0.0).toDouble();
-              dynamic averageResponseTime = monitor['averageResponseTime'];
-              int totalResponses = monitor['totalResponses'] ?? 0;
-              String monitorId = monitor['id'] ?? 'Sin ID';
-
-              return Card(
-                margin: const EdgeInsets.all(8.0),
-                child: ListTile(
-                  leading: CircleAvatar(
-                    child: Text('${index + 1}'),
-                    backgroundColor: Colors.blueAccent,
-                    foregroundColor: Colors.white,
-                  ),
-                  title: Text(monitor['name'] ?? 'Nombre desconocido'),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('ID: $monitorId'),
-                      Text('Correo: ${monitor['email']}'),
-                      Text(
-                          'Tiempo promedio de respuesta: ${_formatTime(averageResponseTime)}'),
-                      Text('Alertas finalizadas: $totalResponses'),
-                      const SizedBox(height: 4),
-                      const Text('Promedio de estrellas:'),
-                      RatingBarIndicator(
-                        rating: averageStars,
-                        itemBuilder: (context, _) => const Icon(
-                          Icons.star,
-                          color: Colors.amber,
-                        ),
-                        itemCount: 5,
-                        itemSize: 20.0,
-                        direction: Axis.horizontal,
-                      ),
-                    ],
-                  ),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.info, color: Colors.blueAccent),
-                    onPressed: () {
-                      _showMonitorDetails(context, monitor);
-                    },
-                  ),
+            return Card(
+              margin: const EdgeInsets.all(8.0),
+              child: ListTile(
+                leading: CircleAvatar(
+                  child: Text('${index + 1}'),
+                  backgroundColor: Colors.blueAccent,
+                  foregroundColor: Colors.white,
                 ),
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
+                title: Text(monitor['name'] ?? 'Nombre desconocido'),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('ID: $monitorId'),
+                    Text('Correo: ${monitor['email']}'),
+                    Text(
+                        'Tiempo promedio de respuesta: ${_formatTime(averageResponseTime)}'),
+                    Text('Alertas finalizadas: $totalResponses'),
+                    const SizedBox(height: 4),
+                    const Text('Promedio de estrellas:'),
+                    RatingBarIndicator(
+                      rating: averageStars,
+                      itemBuilder: (context, _) => const Icon(
+                        Icons.star,
+                        color: Colors.amber,
+                      ),
+                      itemCount: 5,
+                      itemSize: 20.0,
+                      direction: Axis.horizontal,
+                    ),
+                  ],
+                ),
+                trailing: IconButton(
+                  icon: const Icon(Icons.info, color: Colors.blueAccent),
+                  onPressed: () {
+                    _showMonitorDetails(context, monitor);
+                  },
+                ),
+              ),
+            );
+          },
+        );
+      },
+    ),
+  );
+}
 
   // Mostrar detalles adicionales del monitor en un diálogo
   void _showMonitorDetails(

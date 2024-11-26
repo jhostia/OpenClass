@@ -5,6 +5,7 @@ import 'profile_page.dart';
 import 'login_page.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'monitor_list_page.dart';
+import 'chat_page.dart';
 
 class ProfessorPanel extends StatefulWidget {
   const ProfessorPanel({super.key});
@@ -17,9 +18,9 @@ class _ProfessorPanelState extends State<ProfessorPanel> {
   String userId = '';
   String name = 'Cargando...';
   String email = 'Cargando...';
-  String phone = 'Sin teléfono'; // Variable añadida
-  String address = 'Sin dirección'; // Variable añadida
-  String gender = 'No especificado'; // Variable añadida
+  String phone = 'Sin teléfono'; 
+  String address = 'Sin dirección'; 
+  String gender = 'No especificado'; 
   TextEditingController commentsController = TextEditingController();
   String? selectedBlock;
   String? selectedFloor;
@@ -153,7 +154,7 @@ class _ProfessorPanelState extends State<ProfessorPanel> {
 
   Future<void> _finalizeAlert(String alertId, String monitorId) async {
   try {
-    DateTime now = DateTime.now(); // Hora actual para completedTime
+    DateTime now = DateTime.now(); 
 
     // Obtener la alerta
     var alertDoc = await FirebaseFirestore.instance.collection('alerts').doc(alertId).get();
@@ -255,8 +256,6 @@ int _convertReadableTimeToSeconds(String readableTime) {
   return 0;
 }
 
-
-
   Future<double> _showRatingDialog() async {
     double rating = 3.0; // Calificación inicial por defecto
 
@@ -298,59 +297,80 @@ int _convertReadableTimeToSeconds(String readableTime) {
     ) ?? 3.0; // Retorna 3.0 si el diálogo se cierra sin seleccionar una calificación
   }
 
-  Widget _buildAlertsInProgress() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('alerts')
-          .where('professorId', isEqualTo: userId)
-          .where('status', isEqualTo: 'Aceptada')
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
+ Widget _buildAlertsInProgress() {
+  return StreamBuilder<QuerySnapshot>(
+    stream: FirebaseFirestore.instance
+        .collection('alerts')
+        .where('professorId', isEqualTo: userId)
+        .where('status', isEqualTo: 'Aceptada')
+        .snapshots(),
+    builder: (context, snapshot) {
+      if (!snapshot.hasData) {
+        return const Center(child: CircularProgressIndicator());
+      }
 
-        var alerts = snapshot.data!.docs;
-        if (alerts.isEmpty) {
-          return const Center(child: Text('No hay alertas en proceso.'));
-        }
+      var alerts = snapshot.data!.docs;
+      if (alerts.isEmpty) {
+        return const Center(child: Text('No hay alertas en proceso.'));
+      }
 
-        return ListView.builder(
-          itemCount: alerts.length,
-          itemBuilder: (context, index) {
-            var alert = alerts[index].data() as Map<String, dynamic>;
-            String monitorId = alert['handledBy'];
+      return ListView.builder(
+        itemCount: alerts.length,
+        itemBuilder: (context, index) {
+          var alert = alerts[index].data() as Map<String, dynamic>;
+          String monitorId = alert['handledBy'];
 
-            return FutureBuilder<DocumentSnapshot>(
-              future: FirebaseFirestore.instance.collection('users').doc(monitorId).get(),
-              builder: (context, monitorSnapshot) {
-                if (!monitorSnapshot.hasData) {
-                  return const ListTile(
-                    title: Text('Cargando...'),
-                  );
-                }
-
-                var monitorData = monitorSnapshot.data!.data() as Map<String, dynamic>;
-                String monitorName = monitorData['name'] ?? 'Desconocido';
-
-                return Card(
-                  margin: const EdgeInsets.all(8.0),
-                  child: ListTile(
-                    title: Text('Alerta en Bloque ${alert['block']} - Salón ${alert['room']}'),
-                    subtitle: Text('Monitor: $monitorName\nEstado: ${alert['status']}'),
-                    trailing: ElevatedButton(
-                      onPressed: () => _finalizeAlert(alerts[index].id, monitorId),
-                      child: const Text('Finalizar'),
-                    ),
-                  ),
+          return FutureBuilder<DocumentSnapshot>(
+            future: FirebaseFirestore.instance.collection('users').doc(monitorId).get(),
+            builder: (context, monitorSnapshot) {
+              if (!monitorSnapshot.hasData) {
+                return const ListTile(
+                  title: Text('Cargando...'),
                 );
-              },
-            );
-          },
-        );
-      },
-    );
-  }
+              }
+
+              var monitorData = monitorSnapshot.data!.data() as Map<String, dynamic>;
+              String monitorName = monitorData['name'] ?? 'Desconocido';
+
+              return Card(
+                margin: const EdgeInsets.all(8.0),
+                child: ListTile(
+                  title: Text('Alerta en Bloque ${alert['block']} - Salón ${alert['room']}'),
+                  subtitle: Text('Monitor: $monitorName\nEstado: ${alert['status']}'),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.message, color: Colors.blueAccent),
+                        tooltip: 'Abrir chat',
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ChatPage(
+                                alertId: alerts[index].id,
+                                professorId: userId,
+                                monitorId: monitorId,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      ElevatedButton(
+                        onPressed: () => _finalizeAlert(alerts[index].id, monitorId),
+                        child: const Text('Finalizar'),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      );
+    },
+  );
+}
 
   List<String> _generateRooms(String floor, String block) {
     return List.generate(4, (index) {
@@ -363,7 +383,7 @@ int _convertReadableTimeToSeconds(String readableTime) {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profesor - Llamar Monitor'),
+        title: const Text('Profesor - Crear Alerta'),
       ),
       drawer: Drawer(
         child: Column(
@@ -427,27 +447,22 @@ int _convertReadableTimeToSeconds(String readableTime) {
               },
             ),
             ListTile(
-  leading: const Icon(Icons.group),
-  title: const Text('Monitores'),
-  onTap: () {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const MonitorListPage(),
-      ),
-    );
-  },
-),
-
+              leading: const Icon(Icons.group),
+              title: const Text('Monitores'),
+              onTap: () {
+              Navigator.push(
+                context,
+                  MaterialPageRoute(
+                    builder: (context) => const MonitorListPage(),
+                  ),
+                );
+              },
+            ),
             ListTile(
               leading: const Icon(Icons.logout),
               title: const Text('Cerrar sesión'),
-              onTap: () async {
-                await FirebaseAuth.instance.signOut();
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const LoginPage()),
-                );
+              onTap: () {
+              _showLogoutConfirmationDialog(context);
               },
             ),
           ],
@@ -568,4 +583,37 @@ int _convertReadableTimeToSeconds(String readableTime) {
       ),
     );
   }
+
+  void _showLogoutConfirmationDialog(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: const Text('Confirmar'),
+        content: const Text('¿Estás seguro de que deseas cerrar sesión?'),
+        actions: <Widget>[
+          TextButton(
+            child: const Text('No'),
+            onPressed: () {
+              Navigator.of(context).pop(); 
+            },
+          ),
+          TextButton(
+            child: const Text('Sí'),
+            onPressed: () {
+              Navigator.of(context).pop(); 
+              FirebaseAuth.instance.signOut();
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => const LoginPage()),
+                (Route<dynamic> route) => false,
+              );
+            },
+          ),
+        ],
+      );
+    },
+  );
+}
+
 }

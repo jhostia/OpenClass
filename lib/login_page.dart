@@ -20,9 +20,9 @@ class LoginPageState extends State<LoginPage> {
   final TextEditingController passwordController = TextEditingController();
   final AuthService authService = AuthService();
   String errorMessage = '';
-  bool rememberMe = false; // Estado de "Recordarme"
-  bool _passwordVisible = false; // Estado para mostrar/ocultar la contraseña
-  bool isLoading = false; // Estado para mostrar el indicador de carga
+  bool rememberMe = true; 
+  bool _passwordVisible = false; 
+  bool isLoading = false; 
 
   @override
   void initState() {
@@ -43,13 +43,12 @@ class LoginPageState extends State<LoginPage> {
     final savedPassword = prefs.getString('password');
 
     if (savedEmail != null && savedPassword != null) {
-      // Intenta iniciar sesión automáticamente
       try {
         await authService.signInWithEmailAndPassword(savedEmail, savedPassword);
         // Redirige a la pantalla principal
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const AdminPage()), // Cambia esto según corresponda
+          MaterialPageRoute(builder: (context) => const AdminPage()), 
         );
       } catch (e) {
         // Maneja errores de inicio de sesión si es necesario
@@ -62,7 +61,7 @@ Widget build(BuildContext context) {
   return Scaffold(
     body: Container(
       decoration: const BoxDecoration(
-        color: Colors.white, // Fondo blanco
+        color: Color.fromARGB(255, 238, 241, 246), 
       ),
       child: Center(
         child: Padding(
@@ -100,7 +99,7 @@ Widget build(BuildContext context) {
                   const SizedBox(height: 16),
                   TextField(
                     controller: passwordController,
-                    obscureText: !_passwordVisible, // Muestra u oculta la contraseña
+                    obscureText: !_passwordVisible, 
                     decoration: InputDecoration(
                       labelText: 'Contraseña',
                       border: OutlineInputBorder(
@@ -141,7 +140,7 @@ Widget build(BuildContext context) {
                     ),
                   const SizedBox(height: 20),
                   isLoading
-                      ? const CircularProgressIndicator() // Indicador de carga
+                      ? const CircularProgressIndicator() 
                       : ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.blueAccent,
@@ -153,8 +152,8 @@ Widget build(BuildContext context) {
                           ),
                           onPressed: () async {
                             setState(() {
-                              isLoading = true; // Muestra el indicador de carga
-                              errorMessage = ''; // Limpia el mensaje de error
+                              isLoading = true; 
+                              errorMessage = ''; 
                             });
 
                             String email = emailController.text.trim();
@@ -205,7 +204,7 @@ Widget build(BuildContext context) {
                               });
                             } finally {
                               setState(() {
-                                isLoading = false; // Oculta el indicador de carga
+                                isLoading = false; 
                               });
                             }
                           },
@@ -237,58 +236,56 @@ Widget build(BuildContext context) {
                   ),
                   const SizedBox(height: 10),
                   TextButton(
-  onPressed: () async {
-    String email = ''; // Inicializa como una cadena vacía para evitar problemas de nulabilidad
-
-    final result = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Restablecer contraseña'),
-        content: TextField(
-          decoration: const InputDecoration(labelText: 'Correo electrónico'),
-          onChanged: (value) {
-            email = value.trim(); // Asignar el valor del correo y eliminar espacios en blanco
-          },
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(), // Cierra el diálogo sin devolver valor
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(email), // Devuelve el email ingresado
-            child: const Text('Enviar'),
-          ),
-        ],
-      ),
-    );
-
-    // Verifica el resultado del diálogo
-    if (result != null && result.isNotEmpty) {
-      try {
-        await firebase_auth.FirebaseAuth.instance.sendPasswordResetEmail(email: result);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Correo de restablecimiento enviado'),
-        ));
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error: ${e.toString()}'),
-        ));
-      }
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Por favor, ingresa un correo válido'),
-      ));
-    }
-  },
-  child: const Text(
-    '¿Olvidaste tu contraseña?',
-    style: TextStyle(
-      color: Colors.blueAccent,
-      decoration: TextDecoration.underline,
-    ),
-  ),
-),
+                    onPressed: () async {
+                    String email = ''; // Inicializa como una cadena vacía para evitar problemas de nulabilidad
+                    final result = await showDialog<String>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                    title: const Text('Restablecer contraseña'),
+                    content: TextField(
+                      decoration: const InputDecoration(labelText: 'Correo electrónico'),
+                      onChanged: (value) {
+                        email = value.trim(); // Asignar el valor del correo y eliminar espacios en blanco
+                      },
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(), // Cierra el diálogo sin devolver valor
+                        child: const Text('Cancelar'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(email), // Devuelve el email ingresado
+                          child: const Text('Enviar'),
+                        ),
+                      ],
+                    ),
+                    );
+                    // Verifica el resultado del diálogo
+                    if (result != null && result.isNotEmpty) {
+                      try {
+                        await firebase_auth.FirebaseAuth.instance.sendPasswordResetEmail(email: result);
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text('Correo de restablecimiento enviado'),
+                        ));
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text('Error: ${e.toString()}'),
+                        ));
+                      }
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text('Por favor, ingresa un correo válido'),
+                      ));
+                    }
+                  },
+                  child: const Text(
+                    '¿Olvidaste tu contraseña?',
+                    style: TextStyle(
+                      color: Colors.blueAccent,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
 
                 ],
               ),
@@ -299,7 +296,6 @@ Widget build(BuildContext context) {
     ),
   );
 }
-
 
 Future<bool> verificarRegistroFirestore(String email) async {
   QuerySnapshot querySnapshot = await FirebaseFirestore.instance

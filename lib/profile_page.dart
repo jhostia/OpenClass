@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'database/database.dart';
+
 
 class ProfilePage extends StatefulWidget {
   final String id;
