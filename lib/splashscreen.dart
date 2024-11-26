@@ -35,8 +35,8 @@ class _SplashScreenState extends State<SplashScreen> {
             // Logo de la app
             Image.asset(
               'assets/images/logo.jpg', 
-              width: 250, 
-              height: 250,
+              width: 350, 
+              height: 350,
             ),
             const SizedBox(height: 20),
             // Indicador de carga

@@ -1,7 +1,7 @@
 plugins {
     id "com.android.application"
     id "kotlin-android"
-    id "com.google.gms.google-services" // Agregado para Google Services
+    //id "com.google.gms.google-services" // Agregado para Google Services
     id "dev.flutter.flutter-gradle-plugin"
 }
 
@@ -41,5 +41,5 @@ flutter {
 dependencies {
     implementation platform('com.google.firebase:firebase-bom:32.0.0') // Firebase BOM
     implementation "com.google.firebase:firebase-auth-ktx" // Firebase Auth
-    implementation "com.google.android.gms:play-services-auth:20.7.0" // Google Sign-In
+    //implementation "com.google.android.gms:play-services-auth:20.7.0" // Google Sign-In
 }

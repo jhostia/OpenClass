@@ -16,7 +16,6 @@ dependencies:
   pdf: ^3.10.5
   excel: ^2.0.0
   open_file: ^3.2.1
-  google_sign_in: ^6.0.3
   shared_preferences: ^2.0.16
   connectivity_plus: ^4.0.0
 
