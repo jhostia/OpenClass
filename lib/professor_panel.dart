@@ -154,7 +154,7 @@ class _ProfessorPanelState extends State<ProfessorPanel> {
 
   Future<void> _finalizeAlert(String alertId, String monitorId) async {
   try {
-    DateTime now = DateTime.now(); 
+    DateTime now = DateTime.now();
 
     // Obtener la alerta
     var alertDoc = await FirebaseFirestore.instance.collection('alerts').doc(alertId).get();
@@ -185,7 +185,7 @@ class _ProfessorPanelState extends State<ProfessorPanel> {
               // Inicializar campos si no existen
               int totalResponses = (monitorData['totalResponses'] ?? 0) as int;
               String totalResponseTimeStr = (monitorData['totalResponseTime'] ?? '0 h 0 min 0 sec') as String;
-              double totalStars = (monitorData['totalStars'] ?? 0.0) as double;
+              double totalStars = (monitorData['totalStars'] ?? 0.0).toDouble();
 
               // Convertir `totalResponseTime` de formato legible a duración total en segundos
               int totalResponseTimeInSeconds = _convertReadableTimeToSeconds(totalResponseTimeStr);
@@ -199,9 +199,9 @@ class _ProfessorPanelState extends State<ProfessorPanel> {
                   '${(totalResponseTimeInSeconds ~/ 3600)} h ${(totalResponseTimeInSeconds % 3600 ~/ 60)} min ${(totalResponseTimeInSeconds % 60)} sec';
 
               // Calcular `averageResponseTime` en segundos
-              int averageResponseTimeInSeconds = (totalResponseTimeInSeconds / totalResponses).round();
+              double averageResponseTimeInSeconds = totalResponseTimeInSeconds / totalResponses;
               String averageResponseTimeFormatted =
-                  '${(averageResponseTimeInSeconds ~/ 3600)} h ${(averageResponseTimeInSeconds % 3600 ~/ 60)} min ${(averageResponseTimeInSeconds % 60)} sec';
+                  '${(averageResponseTimeInSeconds ~/ 3600).toInt()} h ${(averageResponseTimeInSeconds % 3600 ~/ 60).toInt()} min ${(averageResponseTimeInSeconds % 60).toInt()} sec';
 
               // Mostrar el diálogo para calificar al monitor
               double rating = await _showRatingDialog();

@@ -404,18 +404,34 @@ void _updateAlertStatus(String alertId, String newStatus) async {
       }
 
       var allAlerts = snapshot.data!.docs;
+
+      // Filtrar alertas según el estado
       var acceptedAlerts = allAlerts.where((alert) {
         var alertData = alert.data() as Map<String, dynamic>;
         return alertData['handledBy'] == userId && alertData['status'] == 'Aceptada';
       }).toList();
 
+      var declinedAlerts = allAlerts.where((alert) {
+        var alertData = alert.data() as Map<String, dynamic>;
+        return alertData['handledBy'] == userId && alertData['status'] == 'Denegada';
+      }).toList();
+
+      var finalizedAlerts = allAlerts.where((alert) {
+        var alertData = alert.data() as Map<String, dynamic>;
+        return alertData['handledBy'] == userId && alertData['status'] == 'Finalizada';
+      }).toList();
+
       return SingleChildScrollView(
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (acceptedAlerts.isNotEmpty) ...[
               const Padding(
                 padding: EdgeInsets.all(8.0),
-                child: Text('Alertas Aceptadas', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                child: Text(
+                  'Alertas Aceptadas',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
               ),
               ListView.builder(
                 shrinkWrap: true,
@@ -434,6 +450,7 @@ void _updateAlertStatus(String alertId, String newStatus) async {
                           Text('Fecha y hora: ${timestamp.toLocal()}'),
                           Text('Estado: ${alert['status']}'),
                           Text('Comentarios: ${alert['comments']}'),
+                          Text('Urgente: ${alert['isUrgent'] ? 'Sí' : 'No'}'),
                         ],
                       ),
                       trailing: IconButton(
@@ -452,13 +469,134 @@ void _updateAlertStatus(String alertId, String newStatus) async {
                         },
                         tooltip: 'Abrir chat',
                       ),
+                      onTap: () => _showAlertDetails(context, acceptedAlerts[index].id, alert),
                     ),
                   );
                 },
               ),
             ],
+            if (declinedAlerts.isNotEmpty) ...[
+              const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Text(
+                  'Alertas Denegadas',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: declinedAlerts.length,
+                itemBuilder: (context, index) {
+                  var alert = declinedAlerts[index].data() as Map<String, dynamic>;
+                  DateTime timestamp = (alert['timestamp'] as Timestamp).toDate();
+                  return Card(
+                    margin: const EdgeInsets.all(8.0),
+                    child: ListTile(
+                      title: Text('Alerta en Bloque ${alert['block']} - Salón ${alert['room']}'),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Fecha y hora: ${timestamp.toLocal()}'),
+                          Text('Estado: ${alert['status']}'),
+                          Text('Comentarios: ${alert['comments']}'),
+                          Text('Urgente: ${alert['isUrgent'] ? 'Sí' : 'No'}'),
+                        ],
+                      ),
+                      onTap: () => _showAlertDetails(context, declinedAlerts[index].id, alert),
+                    ),
+                  );
+                },
+              ),
+            ],
+            if (finalizedAlerts.isNotEmpty) ...[
+              const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Text(
+                  'Alertas Finalizadas',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: finalizedAlerts.length,
+                itemBuilder: (context, index) {
+                  var alert = finalizedAlerts[index].data() as Map<String, dynamic>;
+                  DateTime timestamp = (alert['timestamp'] as Timestamp).toDate();
+                  return Card(
+                    margin: const EdgeInsets.all(8.0),
+                    child: ListTile(
+                      title: Text('Alerta en Bloque ${alert['block']} - Salón ${alert['room']}'),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Fecha y hora: ${timestamp.toLocal()}'),
+                          Text('Estado: ${alert['status']}'),
+                          Text('Comentarios: ${alert['comments']}'),
+                          Text('Urgente: ${alert['isUrgent'] ? 'Sí' : 'No'}'),
+                        ],
+                      ),
+                      onTap: () => _showAlertDetails(context, finalizedAlerts[index].id, alert),
+                    ),
+                  );
+                },
+              ),
+            ],
+            if (acceptedAlerts.isEmpty &&
+                declinedAlerts.isEmpty &&
+                finalizedAlerts.isEmpty)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Text('No hay alertas en el historial.'),
+                ),
+              ),
           ],
         ),
+      );
+    },
+  );
+}
+
+// Método para mostrar detalles de la alerta en un diálogo
+void _showAlertDetails(BuildContext context, String alertId, Map<String, dynamic> alertData) {
+  showDialog(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        title: const Text('Detalles de la Alerta'),
+        content: FutureBuilder<DocumentSnapshot>(
+          future: FirebaseFirestore.instance.collection('users').doc(alertData['professorId']).get(),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            var professorData = snapshot.data!.data() as Map<String, dynamic>;
+            String professorName = professorData['name'] ?? 'Desconocido';
+            String responseTime = alertData['responseTime'] ?? 'No disponible';
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Bloque: ${alertData['block']}'),
+                Text('Salón: ${alertData['room']}'),
+                Text('Urgente: ${alertData['isUrgent'] ? 'Sí' : 'No'}'),
+                Text('Comentarios: ${alertData['comments']}'),
+                Text('Profesor: $professorName'),
+                Text('Tiempo de Respuesta: $responseTime'),
+              ],
+            );
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cerrar'),
+          ),
+        ],
       );
     },
   );

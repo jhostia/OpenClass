@@ -14,7 +14,7 @@ class MonitorRankingPage extends StatelessWidget {
 
     return monitorSnapshot.docs.map((doc) {
       var data = doc.data() as Map<String, dynamic>;
-      data['id'] = doc.id; // Incluir el ID del documento en los datos
+      data['id'] = doc.id; 
       return data;
     }).toList();
   }
@@ -41,7 +41,7 @@ Widget build(BuildContext context) {
   return Scaffold(
     appBar: AppBar(
       title: const Text('Ranking de Monitores'),
-      automaticallyImplyLeading: false, // Elimina el espacio del AppBar
+      automaticallyImplyLeading: false, 
     ),
     body: FutureBuilder<List<Map<String, dynamic>>>(
       future: _fetchMonitors(),
@@ -60,7 +60,7 @@ Widget build(BuildContext context) {
         monitors.sort((a, b) {
           double aStars = (a['averageStars'] ?? 0.0).toDouble();
           double bStars = (b['averageStars'] ?? 0.0).toDouble();
-          return bStars.compareTo(aStars); // Orden descendente
+          return bStars.compareTo(aStars); 
         });
 
         return ListView.builder(

@@ -73,7 +73,6 @@ Widget build(BuildContext context) {
   );
 }
 
-
 void _showLogoutConfirmationDialog(BuildContext context) {
   showDialog(
     context: context,
@@ -104,7 +103,6 @@ void _showLogoutConfirmationDialog(BuildContext context) {
     },
   );
 }
-
 
   Widget _buildAdminOption({
     required BuildContext context,
