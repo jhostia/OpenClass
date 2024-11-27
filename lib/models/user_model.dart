@@ -29,6 +29,7 @@ class User {
     this.age,
   });
 
+  // Método para convertir un objeto User a un mapa 
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -47,6 +48,7 @@ class User {
     };
   }
 
+  // Método estático para crear un objeto User a partir de un mapa
   static User fromMap(Map<String, dynamic> map) {
     return User(
       id: map['id'] ?? '',
@@ -65,6 +67,7 @@ class User {
     );
   }
 
+  // Método para crear una copia modificada del objeto User
   User copyWith({
     String? id,
     String? name,
@@ -80,6 +83,7 @@ class User {
     String? gender,
     int? age,
   }) {
+    // Retorna una nueva instancia de User con los valores modificados o los originales
     return User(
       id: id ?? this.id,
       name: name ?? this.name,

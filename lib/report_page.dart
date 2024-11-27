@@ -127,6 +127,7 @@ class _ReportPageState extends State<ReportPage> with SingleTickerProviderStateM
     return 0;
   }
 
+  //Convierte los segundos en un formato de horas, min y seg
   String _formatSecondsToReadableTime(int seconds) {
     int hours = seconds ~/ 3600;
     seconds %= 3600;

@@ -31,12 +31,14 @@ class LoginPageState extends State<LoginPage> {
     _checkSavedSession();
   }
 
+  //Guarda las credeniales del usuario de manera local
   Future<void> _saveUserSession(String email, String password) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('email', email);
     await prefs.setString('password', password);
   }
 
+  //Verifica si hay una sesion guardada para iniciar sesion automaticamente
   Future<void> _checkSavedSession() async {
     final prefs = await SharedPreferences.getInstance();
     final savedEmail = prefs.getString('email');
@@ -245,7 +247,7 @@ Widget build(BuildContext context) {
                     content: TextField(
                       decoration: const InputDecoration(labelText: 'Correo electrónico'),
                       onChanged: (value) {
-                        email = value.trim(); // Asignar el valor del correo y eliminar espacios en blanco
+                        email = value.trim(); 
                       },
                     ),
                     actions: [
